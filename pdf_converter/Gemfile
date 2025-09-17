@@ -1,0 +1,12 @@
+source "https://rubygems.org"
+
+gem "httparty"
+gem "ruby-vips", "~> 2.2"
+gem "jwt", "~> 2.7"
+gem "aws-sdk-secretsmanager", "~> 1.97"
+gem "net-http"
+gem "uri"
+gem "json"
+gem "tempfile"
+
+ruby '~> 3.4'

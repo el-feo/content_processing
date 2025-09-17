@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(bundle install:*)",
+      "Bash(gem install:*)",
+      "Bash(ruby tests/unit/test_handler.rb:*)",
+      "Bash(ruby:*)",
+      "Bash(sam build)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(sam local invoke:*)",
+      "Bash(export JWT_SECRET='local-testing-secret-key')",
+      "Bash(JWT_SECRET='local-testing-secret-key' sam local invoke PDFProcessorFunction --event events/pdf_process_event.json --env-vars env.json)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

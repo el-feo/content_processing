@@ -1,0 +1,52 @@
+{
+  "resource": "/process",
+  "path": "/process",
+  "httpMethod": "POST",
+  "headers": {
+    "Accept": "application/json",
+    "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTc1ODE1MDYxMSwiZXhwIjoxNzU4MTU0MjExfQ.NvYBDAwf3PQDmk-9Vh1esYDkZ2YpME6e7fdER0ZGgEg",
+    "Content-Type": "application/json",
+    "User-Agent": "Custom User Agent String",
+    "X-Amz-Date": "20240101T000000Z",
+    "X-Api-Key": "",
+    "X-Forwarded-For": "127.0.0.1, 127.0.0.2",
+    "X-Forwarded-Port": "443",
+    "X-Forwarded-Proto": "https"
+  },
+  "multiValueHeaders": {
+    "Accept": ["application/json"],
+    "Authorization": ["Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTc1ODE1MDYxMSwiZXhwIjoxNzU4MTU0MjExfQ.NvYBDAwf3PQDmk-9Vh1esYDkZ2YpME6e7fdER0ZGgEg"],
+    "Content-Type": ["application/json"]
+  },
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "accountId": "123456789012",
+    "apiId": "1234567890",
+    "protocol": "HTTP/1.1",
+    "httpMethod": "POST",
+    "path": "/process",
+    "stage": "Prod",
+    "requestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+    "requestTime": "01/Jan/2024:00:00:00 +0000",
+    "requestTimeEpoch": 1704067200000,
+    "identity": {
+      "cognitoIdentityPoolId": null,
+      "accountId": null,
+      "cognitoIdentityId": null,
+      "caller": null,
+      "accessKey": null,
+      "sourceIp": "127.0.0.1",
+      "cognitoAuthenticationType": null,
+      "cognitoAuthenticationProvider": null,
+      "userArn": null,
+      "userAgent": "Custom User Agent String",
+      "user": null
+    },
+    "resourcePath": "/process"
+  },
+  "body": "{\"source\":\"https://example-bucket.s3.amazonaws.com/input/sample.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20240101%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240101T000000Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=example-signature\",\"destination\":\"https://example-bucket.s3.amazonaws.com/output/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20240101%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240101T000000Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=example-signature\",\"webhook\":\"https://example.com/webhook/pdf-processed\"}",
+  "isBase64Encoded": false
+}

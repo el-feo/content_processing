@@ -46,8 +46,8 @@ sam delete --stack-name content_processing  # Delete the deployed stack
 The application follows AWS SAM patterns with containerized Ruby Lambda functions:
 
 - **template.yaml**: Defines the serverless infrastructure including Lambda function configuration, API Gateway routes, and Docker packaging settings
-- **hello_world/app.rb**: Main Lambda handler implementing the business logic with standard Lambda event/context parameters
-- **hello_world/Dockerfile**: Multi-stage Docker build using AWS Lambda Ruby base images
+- **pdf_converter/app.rb**: Main Lambda handler implementing the business logic with standard Lambda event/context parameters
+- **pdf_converter/Dockerfile**: Multi-stage Docker build using AWS Lambda Ruby base images
 - **samconfig.toml**: SAM CLI configuration with deployment settings including parallel builds and warm container support
 - **events/**: Contains sample API Gateway proxy events for local testing
 
