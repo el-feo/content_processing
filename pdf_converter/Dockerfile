@@ -85,8 +85,13 @@ RUN dnf update -y && \
 COPY --from=build-image /usr/local/ /usr/local/
 
 # Create symlinks for libvips library versions
-RUN ln -sf /usr/local/lib/libvips.so /usr/local/lib/libvips.so.42 2>/dev/null || true && \
-    ln -sf /usr/local/lib/libvips.so /usr/local/lib/vips.so.42 2>/dev/null || true && \
+RUN if [ -e /usr/local/lib/libvips.so ]; then \
+        ln -sf /usr/local/lib/libvips.so /usr/local/lib/libvips.so.42 && \
+        ln -sf /usr/local/lib/libvips.so /usr/local/lib/vips.so.42; \
+    else \
+        echo "ERROR: /usr/local/lib/libvips.so not found, cannot create symlinks." >&2; \
+        exit 1; \
+    fi && \
     ls -la /usr/local/lib/libvips* || echo "No libvips files found"
 
 # Set library path for runtime
