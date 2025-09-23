@@ -6,14 +6,14 @@
 
 ## Parent Task 1: JWT Token Validation Middleware
 
-- [ ] Write tests for JWT validation middleware
-- [ ] Implement JWT validation module with RS256 algorithm support
-- [ ] Create reusable authentication module for Lambda handlers
-- [ ] Support both Authorization Bearer and X-Auth-Token headers
-- [ ] Extract user_id, permissions, and expiry claims from tokens
-- [ ] Implement token expiry validation with configurable grace period
-- [ ] Add CloudWatch metrics for authentication success/failure rates
-- [ ] Verify all JWT middleware tests pass
+- [x] Write tests for JWT validation middleware
+- [x] Implement JWT validation module with RS256 algorithm support
+- [x] Create reusable authentication module for Lambda handlers
+- [x] Support both Authorization Bearer and X-Auth-Token headers
+- [x] Extract user_id, permissions, and expiry claims from tokens
+- [x] Implement token expiry validation with configurable grace period
+- [x] Add CloudWatch metrics for authentication success/failure rates
+- [x] Verify all JWT middleware tests pass
 
 ## Parent Task 2: API Gateway Lambda Authorizer Integration
 

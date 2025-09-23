@@ -1,0 +1,30 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    bigdecimal (3.2.3)
+    csv (3.3.5)
+    httparty (0.23.1)
+      csv
+      mini_mime (>= 1.0.0)
+      multi_xml (>= 0.5.2)
+    mini_mime (1.1.5)
+    mocha (2.7.1)
+      ruby2_keywords (>= 0.0.5)
+    multi_xml (0.7.2)
+      bigdecimal (~> 3.1)
+    power_assert (2.0.5)
+    ruby2_keywords (0.0.5)
+    test-unit (3.7.0)
+      power_assert
+
+PLATFORMS
+  arm64-darwin-24
+  ruby
+
+DEPENDENCIES
+  httparty
+  mocha
+  test-unit
+
+BUNDLED WITH
+   2.6.9

@@ -6,7 +6,9 @@
       "Bash(git commit:*)",
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs",
-      "Bash(bundle install:*)"
+      "Bash(bundle install:*)",
+      "Bash(git checkout:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []
