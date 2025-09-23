@@ -20,7 +20,7 @@ sam deploy --guided          # First-time deployment with prompts
 
 ```bash
 sam local start-api          # Run API locally on port 3000
-sam local invoke HelloWorldFunction --event events/event.json  # Test function with sample event
+sam local invoke ContentProcessorFunction --event events/event.json  # Test function with sample event
 ```
 
 ### Testing
@@ -32,7 +32,7 @@ ruby tests/unit/test_handler.rb  # Run unit tests
 ### Monitoring
 
 ```bash
-sam logs -n HelloWorldFunction --stack-name content_processing --tail  # View Lambda logs
+sam logs -n ContentProcessorFunction --stack-name content_processing --tail  # View Lambda logs
 ```
 
 ### Cleanup
@@ -46,8 +46,8 @@ sam delete --stack-name content_processing  # Delete the deployed stack
 The application follows AWS SAM patterns with containerized Ruby Lambda functions:
 
 - **template.yaml**: Defines the serverless infrastructure including Lambda function configuration, API Gateway routes, and Docker packaging settings
-- **hello_world/app.rb**: Main Lambda handler implementing the business logic with standard Lambda event/context parameters
-- **hello_world/Dockerfile**: Multi-stage Docker build using AWS Lambda Ruby base images
+- **content_processor/app.rb**: Main Lambda handler implementing the business logic with standard Lambda event/context parameters
+- **content_processor/Dockerfile**: Multi-stage Docker build using AWS Lambda Ruby base images
 - **samconfig.toml**: SAM CLI configuration with deployment settings including parallel builds and warm container support
 - **events/**: Contains sample API Gateway proxy events for local testing
 
@@ -56,4 +56,4 @@ The Lambda function is configured with:
 - 512 MB memory
 - 3-second timeout
 - Container packaging using Ruby 3.4
-- API endpoint at `/hello` responding to GET requests
+- API endpoint at `/process` responding to GET requests

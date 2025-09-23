@@ -2,9 +2,9 @@ require 'json'
 require 'test/unit'
 require 'mocha/test_unit'
 
-require_relative '../../hello_world/app'
+require_relative '../../content_processor/app'
 
-class HelloWorldTest < Test::Unit::TestCase
+class ContentProcessorTest < Test::Unit::TestCase
   def event
     {
       body: 'eyJ0ZXN0IjoiYm9keSJ9',
@@ -81,7 +81,7 @@ class HelloWorldTest < Test::Unit::TestCase
     {
       statusCode: 200,
       body: {
-        message: 'Hello World!',
+        message: 'Content processed successfully',
         location: '1.1.1.1'
       }.to_json
     }

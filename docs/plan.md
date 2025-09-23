@@ -22,8 +22,8 @@ will send a success message to the webhook.
 
 imagine there maybe additional functionality in the future, like text extraction or watermarking.
 
+start by renaming "hellow_world" to match the intent of the application
 modify the existing pdf_converter app to accomplish this.
-rename "hellow_world"
 
 Use context7 to look up documentation.
 
