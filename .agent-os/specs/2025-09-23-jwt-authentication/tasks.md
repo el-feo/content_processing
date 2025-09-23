@@ -2,7 +2,7 @@
 
 ## Parent Task 0: Ensure test framework is in place
 
-- [ ] Set up RSpec test framework (use context7 for documentation)
+- [x] Set up RSpec test framework (use context7 for documentation)
 
 ## Parent Task 1: JWT Token Validation Middleware
 
