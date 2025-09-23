@@ -1,0 +1,30 @@
+{
+  "body": "{\"source\":\"s3://test-pdfs/test.pdf\",\"destination\":\"s3://test-output/\",\"webhook\":\"http://webhook-server:8080/webhook\"}",
+  "resource": "/process",
+  "path": "/process",
+  "httpMethod": "POST",
+  "isBase64Encoded": false,
+  "headers": {
+    "Authorization": "Bearer PLACEHOLDER_JWT_TOKEN",
+    "Content-Type": "application/json",
+    "Accept": "*/*",
+    "User-Agent": "localstack-test-client/1.0"
+  },
+  "requestContext": {
+    "accountId": "123456789012",
+    "resourceId": "123456",
+    "stage": "local",
+    "requestId": "localstack-test-request-id",
+    "requestTime": "21/Sep/2025:12:00:00 +0000",
+    "requestTimeEpoch": 1726920000000,
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "localstack-test-client/1.0"
+    },
+    "path": "/local/process",
+    "resourcePath": "/process",
+    "httpMethod": "POST",
+    "apiId": "localstack-api",
+    "protocol": "HTTP/1.1"
+  }
+}

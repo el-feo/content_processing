@@ -1,0 +1,152 @@
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: pdf-processor-localstack
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    environment:
+      - SERVICES=s3,lambda,secretsmanager,cloudwatch,logs
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - LAMBDA_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - PERSISTENCE=1
+    volumes:
+      - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - localstack-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  pdf-processor-init:
+    image: amazon/aws-cli:latest
+    container_name: pdf-processor-init
+    depends_on:
+      localstack:
+        condition: service_healthy
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+    entrypoint: /bin/sh -c
+    command: |
+      "
+      echo 'Waiting for LocalStack to be ready...'
+      until aws --endpoint-url=http://localstack:4566 s3api list-buckets > /dev/null 2>&1; do
+        echo 'Waiting for LocalStack...'
+        sleep 5
+      done
+
+      echo 'Creating S3 buckets...'
+      aws --endpoint-url=http://localstack:4566 s3 mb s3://test-pdfs || echo 'Bucket test-pdfs already exists'
+      aws --endpoint-url=http://localstack:4566 s3 mb s3://test-output || echo 'Bucket test-output already exists'
+
+      echo 'Creating JWT secret...'
+      aws --endpoint-url=http://localstack:4566 secretsmanager create-secret \
+        --name pdf-processor/jwt-secret \
+        --secret-string '{\"jwt_secret\":\"localstack-secret-key\"}' || \
+        echo 'Secret already exists, updating...' && \
+        aws --endpoint-url=http://localstack:4566 secretsmanager update-secret \
+        --secret-id pdf-processor/jwt-secret \
+        --secret-string '{\"jwt_secret\":\"localstack-secret-key\"}'
+
+      echo 'Uploading test PDF...'
+      echo '%PDF-1.4
+      1 0 obj
+      <<
+      /Type /Catalog
+      /Pages 2 0 R
+      >>
+      endobj
+      2 0 obj
+      <<
+      /Type /Pages
+      /Kids [3 0 R]
+      /Count 1
+      >>
+      endobj
+      3 0 obj
+      <<
+      /Type /Page
+      /Parent 2 0 R
+      /MediaBox [0 0 612 792]
+      >>
+      endobj
+      xref
+      0 4
+      0000000000 65535 f
+      0000000010 00000 n
+      0000000079 00000 n
+      0000000173 00000 n
+      trailer
+      <<
+      /Size 4
+      /Root 1 0 R
+      >>
+      startxref
+      253
+      %%EOF' > /tmp/test.pdf
+
+      aws --endpoint-url=http://localstack:4566 s3 cp /tmp/test.pdf s3://test-pdfs/test.pdf || echo 'Failed to upload test PDF'
+
+      echo 'LocalStack initialization complete!'
+      echo 'Available services:'
+      aws --endpoint-url=http://localstack:4566 s3 ls
+      aws --endpoint-url=http://localstack:4566 secretsmanager list-secrets
+      "
+    networks:
+      - localstack-net
+
+  webhook-server:
+    image: python:3.9-alpine
+    container_name: pdf-webhook-server
+    ports:
+      - "8080:8080"
+    command: |
+      sh -c "
+      echo 'Starting simple webhook server...'
+      python -c \"
+      import http.server
+      import socketserver
+      import json
+      from datetime import datetime
+
+      class WebhookHandler(http.server.BaseHTTPRequestHandler):
+          def do_POST(self):
+              content_length = int(self.headers['Content-Length'])
+              post_data = self.rfile.read(content_length)
+
+              print(f'[{datetime.now()}] Webhook received:')
+              print(f'Headers: {dict(self.headers)}')
+              print(f'Body: {post_data.decode()}')
+
+              self.send_response(200)
+              self.send_header('Content-type', 'application/json')
+              self.end_headers()
+              self.wfile.write(b'{\"status\": \"received\"}')
+
+          def log_message(self, format, *args):
+              pass
+
+      with socketserver.TCPServer(('', 8080), WebhookHandler) as httpd:
+          print('Webhook server running on port 8080')
+          httpd.serve_forever()
+      \"
+      "
+    networks:
+      - localstack-net
+
+networks:
+  localstack-net:
+    driver: bridge

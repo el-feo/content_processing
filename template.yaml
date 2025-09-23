@@ -9,7 +9,7 @@ Description: >
 Globals:
   Function:
     Timeout: 300  # 5 minutes for PDF processing
-    MemorySize: 2048  # 2GB for processing large PDFs
+    MemorySize: 3008  # 3GB for processing large PDFs (max is 3008MB for x86_64)
 
 Resources:
   PDFProcessorFunction:
@@ -24,6 +24,12 @@ Resources:
           JWT_SECRET_NAME: !Ref JWTSecret
           VIPS_CONCURRENCY: "1"  # Limit concurrency for stability
           VIPS_DISC_THRESHOLD: "500m"  # Use disk for operations over 500MB
+          MAX_PDF_SIZE: "104857600"  # 100MB limit
+          MAX_PAGES: "100"  # Maximum 100 pages
+          PDF_DPI: "150"  # Default DPI for conversion
+          CONCURRENT_PAGES: "5"  # Process 5 pages concurrently
+          WEBHOOK_TIMEOUT: "10"  # 10 second timeout for webhooks
+          WEBHOOK_RETRIES: "3"  # Retry webhooks 3 times
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -31,6 +37,10 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Ref JWTSecret
+            - Effect: Allow
+              Action:
+                - cloudwatch:PutMetricData
+              Resource: "*"
       Events:
         ProcessPDF:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api

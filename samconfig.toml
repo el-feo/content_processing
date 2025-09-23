@@ -28,3 +28,25 @@ warm_containers = "EAGER"
 
 [default.local_start_lambda.parameters]
 warm_containers = "EAGER"
+
+# LocalStack configuration
+[localstack.global.parameters]
+stack_name = "pdf-processor-local"
+
+[localstack.build.parameters]
+parallel = true
+
+[localstack.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+resolve_s3 = false
+parameter_overrides = "JWTSecretValue=localstack-secret-key"
+
+[localstack.local_start_api.parameters]
+warm_containers = "EAGER"
+docker_network = "content_processing_localstack-net"
+host = "0.0.0.0"
+
+[localstack.local_start_lambda.parameters]
+warm_containers = "EAGER"
+docker_network = "content_processing_localstack-net"

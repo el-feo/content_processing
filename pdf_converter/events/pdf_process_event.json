@@ -1,0 +1,30 @@
+{
+  "body": "{\"source\":\"https://example-bucket.s3.amazonaws.com/test.pdf\",\"destination\":\"https://example-bucket.s3.amazonaws.com/output/\",\"webhook\":\"https://api.example.com/webhook\"}",
+  "resource": "/process",
+  "path": "/process",
+  "httpMethod": "POST",
+  "isBase64Encoded": false,
+  "headers": {
+    "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0LXVzZXIiLCJleHAiOjE3NTg1MDE1NTd9.DJgJ41ugZNpD_XUMt2dcM6x6-EevKXa5oMqujQgfz6k",
+    "Content-Type": "application/json",
+    "Accept": "*/*",
+    "User-Agent": "test-client/1.0"
+  },
+  "requestContext": {
+    "accountId": "123456789012",
+    "resourceId": "123456",
+    "stage": "prod",
+    "requestId": "test-request-id-123",
+    "requestTime": "09/Apr/2024:12:34:56 +0000",
+    "requestTimeEpoch": 1712668496000,
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "test-client/1.0"
+    },
+    "path": "/prod/process",
+    "resourcePath": "/process",
+    "httpMethod": "POST",
+    "apiId": "1234567890",
+    "protocol": "HTTP/1.1"
+  }
+}

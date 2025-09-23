@@ -11,7 +11,11 @@
       "mcp__context7__get-library-docs",
       "Bash(sam local invoke:*)",
       "Bash(export JWT_SECRET='local-testing-secret-key')",
-      "Bash(JWT_SECRET='local-testing-secret-key' sam local invoke PDFProcessorFunction --event events/pdf_process_event.json --env-vars env.json)"
+      "Bash(JWT_SECRET='local-testing-secret-key' sam local invoke PDFProcessorFunction --event events/pdf_process_event.json --env-vars env.json)",
+      "Bash(gh pr:*)",
+      "Bash(./test_localstack_existing.sh:*)",
+      "Bash(./quick_test_localstack.sh)",
+      "Bash(./test_no_webhook.sh:*)"
     ],
     "deny": [],
     "ask": []

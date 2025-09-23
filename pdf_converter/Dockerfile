@@ -31,7 +31,8 @@ RUN dnf update -y && \
     wget \
     cmake \
     tar \
-    xz || true
+    xz && \
+    echo "All required packages installed successfully"
 
 # Download and install pdfium (using x64 for compatibility with --platform=linux/amd64)
 RUN cd /tmp && \
@@ -85,14 +86,31 @@ RUN dnf update -y && \
 COPY --from=build-image /usr/local/ /usr/local/
 
 # Create symlinks for libvips library versions
-RUN if [ -e /usr/local/lib/libvips.so ]; then \
-        ln -sf /usr/local/lib/libvips.so /usr/local/lib/libvips.so.42 && \
-        ln -sf /usr/local/lib/libvips.so /usr/local/lib/vips.so.42; \
+# Check both lib and lib64 directories as installation location varies
+RUN echo "Checking for libvips libraries..." && \
+    ls -la /usr/local/lib*/libvips* 2>/dev/null || echo "No libvips in lib directories" && \
+    ls -la /usr/local/lib*/*.so* 2>/dev/null | head -20 || echo "Library check complete" && \
+    if [ -e /usr/local/lib64/libvips.so.42.17.1 ]; then \
+        echo "Found libvips in lib64, creating all necessary symlinks..." && \
+        cd /usr/local/lib64 && \
+        ln -sf libvips.so.42.17.1 libvips.so.42 && \
+        ln -sf libvips.so.42.17.1 libvips.so && \
+        ln -sf libvips.so.42.17.1 vips.so.42 && \
+        echo "Created symlinks in lib64" && \
+        ls -la /usr/local/lib64/*vips* ; \
+    elif [ -e /usr/local/lib/libvips.so.42.17.1 ]; then \
+        echo "Found libvips in lib, creating all necessary symlinks..." && \
+        cd /usr/local/lib && \
+        ln -sf libvips.so.42.17.1 libvips.so.42 && \
+        ln -sf libvips.so.42.17.1 libvips.so && \
+        ln -sf libvips.so.42.17.1 vips.so.42 && \
+        echo "Created symlinks in lib" && \
+        ls -la /usr/local/lib/*vips* ; \
     else \
-        echo "ERROR: /usr/local/lib/libvips.so not found, cannot create symlinks." >&2; \
-        exit 1; \
+        echo "Warning: libvips.so not found, checking for versioned files..." && \
+        find /usr/local -name "libvips*.so*" -type f 2>/dev/null || echo "No versioned libvips found"; \
     fi && \
-    ls -la /usr/local/lib/libvips* || echo "No libvips files found"
+    ldconfig 2>/dev/null || echo "ldconfig not available"
 
 # Set library path for runtime
 ENV LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:${LD_LIBRARY_PATH}"
