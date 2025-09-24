@@ -1,5 +1,5 @@
 {
-  "body": "{\"content\": \"sample content to process\"}",
+  "body": "{\"message\": \"hello world\"}",
   "resource": "/{proxy+}",
   "path": "/path/to/resource",
   "httpMethod": "POST",

@@ -12,33 +12,33 @@ Globals:
     MemorySize: 512
 
 Resources:
-  ContentProcessorFunction:
+  HelloWorldFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       PackageType: Image
       Architectures:
         - x86_64
       Events:
-        ContentProcessor:
+        HelloWorld:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
-            Path: /process
+            Path: /hello
             Method: get
     Metadata:
       DockerTag: ruby3.4-v1
-      DockerContext: ./content_processor
+      DockerContext: ./hello_world
       Dockerfile: Dockerfile
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  ContentProcessorApi:
-    Description: "API Gateway endpoint URL for Prod stage for Content Processor function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/process/"
-  ContentProcessorFunction:
-    Description: "Content Processor Lambda Function ARN"
-    Value: !GetAtt ContentProcessorFunction.Arn
-  ContentProcessorFunctionIamRole:
-    Description: "Implicit IAM Role created for Content Processor function"
-    Value: !GetAtt ContentProcessorFunctionRole.Arn
+  HelloWorldApi:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/hello/"
+  HelloWorldFunction:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt HelloWorldFunction.Arn
+  HelloWorldFunctionIamRole:
+    Description: "Implicit IAM Role created for Hello World function"
+    Value: !GetAtt HelloWorldFunctionRole.Arn
