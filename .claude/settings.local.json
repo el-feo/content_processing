@@ -13,7 +13,11 @@
       "Read(//Users/jebcoleman/.agent-os/instructions/core/**)",
       "Bash(aws secretsmanager describe-secret:*)",
       "Bash(sam build:*)",
-      "Bash(ruby:*)"
+      "Bash(ruby:*)",
+      "Bash(git push:*)",
+      "Bash(bundle exec rubocop:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs"
     ],
     "deny": [],
     "ask": []

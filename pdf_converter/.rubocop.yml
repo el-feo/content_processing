@@ -1,0 +1,26 @@
+AllCops:
+  NewCops: enable
+  SuggestExtensions: false
+
+# Allow longer methods for Lambda handlers and complex authentication logic
+Metrics/MethodLength:
+  Max: 25
+  AllowedMethods: ['lambda_handler', 'authenticate', 'validate_token', 'retrieve_secret', 'authentication_error_response']
+
+# Allow longer blocks in spec files (RSpec tests often need longer describe/context blocks)
+Metrics/BlockLength:
+  Max: 25
+  Exclude:
+    - 'spec/**/*'
+
+# Allow missing documentation for simple classes like authenticators
+Style/Documentation:
+  Enabled: false
+
+# Allow unused context parameter in Lambda handlers (required by AWS Lambda)
+Lint/UnusedMethodArgument:
+  AllowUnusedKeywordArguments: true
+
+# Disable FetchEnvVar for ENV variable checks in specs and app code
+Style/FetchEnvVar:
+  Enabled: false

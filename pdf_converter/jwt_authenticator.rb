@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'jwt'
 require 'aws-sdk-secretsmanager'
 require 'json'
@@ -20,9 +22,11 @@ class JwtAuthenticator
     token = extract_token(headers)
 
     if token.nil?
-      error_msg = headers.key?('Authorization') || headers.key?('authorization') ?
-                  'Invalid Bearer token format' :
-                  'Missing Authorization header'
+      error_msg = if headers.key?('Authorization') || headers.key?('authorization')
+                    'Invalid Bearer token format'
+                  else
+                    'Missing Authorization header'
+                  end
       log_error("Authentication failed: #{error_msg}")
       return { authenticated: false, error: error_msg }
     end
@@ -44,7 +48,7 @@ class JwtAuthenticator
     auth_header = headers['Authorization'] || headers['authorization']
     return nil if auth_header.nil?
 
-    parts = auth_header.split(' ')
+    parts = auth_header.split
     return nil unless parts.length == 2 && parts[0].downcase == 'bearer'
 
     parts[1]
@@ -66,7 +70,7 @@ class JwtAuthenticator
       { valid: false, error: 'Token has expired' }
     rescue JWT::VerificationError
       { valid: false, error: 'Invalid signature' }
-    rescue JWT::DecodeError => e
+    rescue JWT::DecodeError
       { valid: false, error: 'Malformed token' }
     rescue StandardError => e
       { valid: false, error: "Token validation error: #{e.message}" }
@@ -74,37 +78,35 @@ class JwtAuthenticator
   end
 
   def log_error(message)
-    @logger.error(message) if @logger
+    @logger&.error(message)
   end
 
   def log_debug(message)
-    @logger.debug(message) if @logger
+    @logger&.debug(message)
   end
 
   private
 
   def retrieve_secret
-    begin
-      client = Aws::SecretsManager::Client.new(
-        region: ENV['AWS_REGION'] || 'us-east-1'
-      )
+    client = Aws::SecretsManager::Client.new(
+      region: ENV['AWS_REGION'] || 'us-east-1'
+    )
 
-      secret_response = client.get_secret_value(secret_id: @secret_name)
-      @secret = secret_response.secret_string
+    secret_response = client.get_secret_value(secret_id: @secret_name)
+    @secret = secret_response.secret_string
 
-      log_debug("Successfully retrieved JWT secret from Secrets Manager")
-    rescue Aws::SecretsManager::Errors::ResourceNotFoundException => e
-      error_msg = "Failed to retrieve JWT secret: Secret '#{@secret_name}' not found"
-      log_error(error_msg)
-      raise AuthenticationError, error_msg
-    rescue Aws::SecretsManager::Errors::ServiceError => e
-      error_msg = "Failed to retrieve JWT secret: AWS service error - #{e.message}"
-      log_error(error_msg)
-      raise AuthenticationError, error_msg
-    rescue StandardError => e
-      error_msg = "Failed to retrieve JWT secret: #{e.message}"
-      log_error(error_msg)
-      raise AuthenticationError, error_msg
-    end
+    log_debug('Successfully retrieved JWT secret from Secrets Manager')
+  rescue Aws::SecretsManager::Errors::ResourceNotFoundException
+    error_msg = "Failed to retrieve JWT secret: Secret '#{@secret_name}' not found"
+    log_error(error_msg)
+    raise AuthenticationError, error_msg
+  rescue Aws::SecretsManager::Errors::ServiceError => e
+    error_msg = "Failed to retrieve JWT secret: AWS service error - #{e.message}"
+    log_error(error_msg)
+    raise AuthenticationError, error_msg
+  rescue StandardError => e
+    error_msg = "Failed to retrieve JWT secret: #{e.message}"
+    log_error(error_msg)
+    raise AuthenticationError, error_msg
   end
 end

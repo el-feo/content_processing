@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'json'
 require 'net/http'
 require 'uri'
@@ -16,17 +18,15 @@ def lambda_handler(event:, context:)
 
   # Authenticate the request
   auth_result = authenticate_request(event)
-  unless auth_result[:authenticated]
-    return authentication_error_response(auth_result[:error])
-  end
+  return authentication_error_response(auth_result[:error]) unless auth_result[:authenticated]
 
   # Parse the request body
   begin
     request_body = parse_request(event)
   rescue JSON::ParserError
-    return error_response(400, "Invalid JSON format")
+    return error_response(400, 'Invalid JSON format')
   rescue StandardError
-    return error_response(400, "Invalid request")
+    return error_response(400, 'Invalid request')
   end
 
   # Validate required fields
@@ -44,41 +44,33 @@ def lambda_handler(event:, context:)
       'Access-Control-Allow-Origin' => '*'
     },
     body: {
-      message: "PDF conversion request received",
+      message: 'PDF conversion request received',
       unique_id: request_body['unique_id'],
-      status: "accepted"
+      status: 'accepted'
     }.to_json
   }
 end
 
-private
-
 def parse_request(event)
   # Handle both direct invocation and API Gateway proxy format
-  body = if event['body'].is_a?(String)
+  if event['body'].is_a?(String)
     JSON.parse(event['body'])
   elsif event['body'].is_a?(Hash)
     event['body']
   else
     event
   end
-
-  body
 end
 
 def validate_request(body)
   required_fields = %w[source destination webhook unique_id]
 
   missing_fields = required_fields - body.keys
-  unless missing_fields.empty?
-    return error_response(400, "Missing required fields")
-  end
+  return error_response(400, 'Missing required fields') unless missing_fields.empty?
 
   # Validate URLs
   %w[source destination webhook].each do |field|
-    unless valid_url?(body[field])
-      return error_response(400, "Invalid URL format")
-    end
+    return error_response(400, 'Invalid URL format') unless valid_url?(body[field])
   end
 
   nil
@@ -109,24 +101,22 @@ def error_response(status_code, message)
 end
 
 def authenticate_request(event)
-  begin
-    # Initialize authenticator (cached after first initialization in Lambda)
-    @authenticator ||= JwtAuthenticator.new(ENV['JWT_SECRET_NAME'] || 'pdf-converter/jwt-secret')
+  # Initialize authenticator (cached after first initialization in Lambda)
+  @authenticator ||= JwtAuthenticator.new(ENV['JWT_SECRET_NAME'] || 'pdf-converter/jwt-secret')
 
-    # Get headers from the event (handle different formats)
-    headers = event['headers'] || {}
+  # Get headers from the event (handle different formats)
+  headers = event['headers'] || {}
 
-    # Authenticate the request
-    @authenticator.authenticate(headers)
-  rescue JwtAuthenticator::AuthenticationError => e
-    # Handle secrets manager errors
-    puts "ERROR: Authentication service error: #{e.message}"
-    { authenticated: false, error: 'Authentication service unavailable' }
-  rescue StandardError => e
-    # Handle any other unexpected errors
-    puts "ERROR: Unexpected authentication error: #{e.message}"
-    { authenticated: false, error: 'Authentication service error' }
-  end
+  # Authenticate the request
+  @authenticator.authenticate(headers)
+rescue JwtAuthenticator::AuthenticationError => e
+  # Handle secrets manager errors
+  puts "ERROR: Authentication service error: #{e.message}"
+  { authenticated: false, error: 'Authentication service unavailable' }
+rescue StandardError => e
+  # Handle any other unexpected errors
+  puts "ERROR: Unexpected authentication error: #{e.message}"
+  { authenticated: false, error: 'Authentication service error' }
 end
 
 def authentication_error_response(error_message)
