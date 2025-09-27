@@ -1,17 +1,21 @@
-source "https://rubygems.org"
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
 
 ruby '~> 3.4'
 
 # Testing
 group :test do
-  gem "rspec", "~> 3.12"
+  gem 'rspec', '~> 3.12'
 end
 
 # JSON handling
-gem "json"
+gem 'json'
 
 # JWT authentication
-gem "jwt", "~> 2.7"
+gem 'jwt', '~> 2.7'
 
 # AWS SDK for Secrets Manager
-gem "aws-sdk-secretsmanager", "~> 1"
+gem 'aws-sdk-secretsmanager', '~> 1'
+
+gem 'rubocop', '~> 1.81'

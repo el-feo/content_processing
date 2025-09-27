@@ -5,7 +5,19 @@
       "Bash(bundle exec rspec:*)",
       "Bash(bundle install:*)",
       "Bash(export AWS_REGION=us-east-1)",
-      "Bash(export JWT_SECRET_NAME=pdf-converter/jwt-secret)"
+      "Bash(export JWT_SECRET_NAME=pdf-converter/jwt-secret)",
+      "Bash(git commit:*)",
+      "Bash(lsof:*)",
+      "Bash(git add:*)",
+      "Bash(git checkout:*)",
+      "Read(//Users/jebcoleman/.agent-os/instructions/core/**)",
+      "Bash(aws secretsmanager describe-secret:*)",
+      "Bash(sam build:*)",
+      "Bash(ruby:*)",
+      "Bash(git push:*)",
+      "Bash(bundle exec rubocop:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs"
     ],
     "deny": [],
     "ask": []
