@@ -1,7 +1,7 @@
 {
-  "body": "{\"message\": \"hello world\"}",
-  "resource": "/{proxy+}",
-  "path": "/path/to/resource",
+  "body": "{\"source\": \"https://s3.amazonaws.com/bucket/input.pdf?signature=abc123\", \"destination\": \"https://s3.amazonaws.com/bucket/output/\", \"webhook\": \"https://example.com/webhook\", \"unique_id\": \"client-123\"}",
+  "resource": "/convert",
+  "path": "/convert",
   "httpMethod": "POST",
   "isBase64Encoded": false,
   "queryStringParameters": {
