@@ -8,7 +8,8 @@
       "Bash(export JWT_SECRET_NAME=pdf-converter/jwt-secret)",
       "Bash(git commit:*)",
       "Bash(lsof:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
