@@ -5,7 +5,10 @@
       "Bash(bundle exec rspec:*)",
       "Bash(bundle install:*)",
       "Bash(export AWS_REGION=us-east-1)",
-      "Bash(export JWT_SECRET_NAME=pdf-converter/jwt-secret)"
+      "Bash(export JWT_SECRET_NAME=pdf-converter/jwt-secret)",
+      "Bash(git commit:*)",
+      "Bash(lsof:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
