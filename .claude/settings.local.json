@@ -9,7 +9,11 @@
       "Bash(git commit:*)",
       "Bash(lsof:*)",
       "Bash(git add:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Read(//Users/jebcoleman/.agent-os/instructions/core/**)",
+      "Bash(aws secretsmanager describe-secret:*)",
+      "Bash(sam build:*)",
+      "Bash(ruby:*)"
     ],
     "deny": [],
     "ask": []

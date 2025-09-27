@@ -1,9 +1,10 @@
 require 'json'
 require 'net/http'
 require 'uri'
+require_relative 'jwt_authenticator'
 
 def lambda_handler(event:, context:)
-  # PDF to Image Converter Lambda Handler
+  # PDF to Image Converter Lambda Handler with JWT Authentication
   #
   # Expected POST body:
   # {
@@ -13,12 +14,18 @@ def lambda_handler(event:, context:)
   #   "unique_id": "client_id"
   # }
 
+  # Authenticate the request
+  auth_result = authenticate_request(event)
+  unless auth_result[:authenticated]
+    return authentication_error_response(auth_result[:error])
+  end
+
   # Parse the request body
   begin
     request_body = parse_request(event)
-  rescue JSON::ParserError => e
+  rescue JSON::ParserError
     return error_response(400, "Invalid JSON format")
-  rescue StandardError => e
+  rescue StandardError
     return error_response(400, "Invalid request")
   end
 
@@ -26,12 +33,15 @@ def lambda_handler(event:, context:)
   validation_error = validate_request(request_body)
   return validation_error if validation_error
 
-  # For now, return a simple success response
-  # This will be expanded to include actual PDF processing
+  # Log successful authentication for monitoring
+  puts "Authentication successful for unique_id: #{request_body['unique_id']}"
+
+  # Return accepted response for async processing
   {
-    statusCode: 200,
+    statusCode: 202,
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type' => 'application/json',
+      'Access-Control-Allow-Origin' => '*'
     },
     body: {
       message: "PDF conversion request received",
@@ -89,10 +99,52 @@ def error_response(status_code, message)
   {
     statusCode: status_code,
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type' => 'application/json',
+      'Access-Control-Allow-Origin' => '*'
     },
     body: {
       error: message
+    }.to_json
+  }
+end
+
+def authenticate_request(event)
+  begin
+    # Initialize authenticator (cached after first initialization in Lambda)
+    @authenticator ||= JwtAuthenticator.new(ENV['JWT_SECRET_NAME'] || 'pdf-converter/jwt-secret')
+
+    # Get headers from the event (handle different formats)
+    headers = event['headers'] || {}
+
+    # Authenticate the request
+    @authenticator.authenticate(headers)
+  rescue JwtAuthenticator::AuthenticationError => e
+    # Handle secrets manager errors
+    puts "ERROR: Authentication service error: #{e.message}"
+    { authenticated: false, error: 'Authentication service unavailable' }
+  rescue StandardError => e
+    # Handle any other unexpected errors
+    puts "ERROR: Unexpected authentication error: #{e.message}"
+    { authenticated: false, error: 'Authentication service error' }
+  end
+end
+
+def authentication_error_response(error_message)
+  # Determine appropriate status code based on error
+  status_code = if error_message.include?('service')
+                  500  # Server errors (Secrets Manager issues)
+                else
+                  401  # Authentication failures
+                end
+
+  {
+    statusCode: status_code,
+    headers: {
+      'Content-Type' => 'application/json',
+      'Access-Control-Allow-Origin' => '*'
+    },
+    body: {
+      error: error_message
     }.to_json
   }
 end
