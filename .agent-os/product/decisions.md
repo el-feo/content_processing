@@ -40,12 +40,14 @@ Serverless architecture with AWS SAM provides the optimal balance of scalability
 ### Consequences
 
 **Positive:**
+
 - Zero infrastructure management required
 - Automatic scaling from 0 to thousands of concurrent executions
 - Pay-per-use pricing model reduces costs
 - Enterprise-grade security with AWS services
 
 **Negative:**
+
 - Cold start latency for initial requests
 - AWS vendor lock-in
 - Limited execution time (15 minutes max per Lambda)
@@ -87,12 +89,14 @@ Ruby with libvips provides the best balance of developer productivity and perfor
 ### Consequences
 
 **Positive:**
+
 - Efficient memory usage with libvips streaming
 - Clean, maintainable code with Ruby
 - Comprehensive testing with RSpec
 - Full AWS simulation with LocalStack
 
 **Negative:**
+
 - Larger Docker images due to libvips/pdfium dependencies
 - Ruby performance overhead vs compiled languages
 - Limited libvips documentation for advanced features

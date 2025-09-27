@@ -2,7 +2,7 @@
 
 ## Pitch
 
-PDF Converter Service is a serverless document processing platform that helps developers convert PDFs to images at scale by providing secure, asynchronous processing with webhook notifications.
+PDF Converter Service is an open source serverless document processing platform that helps developers convert PDFs to images at scale by providing secure, asynchronous processing with webhook notifications.
 
 ## Users
 
@@ -15,12 +15,14 @@ PDF Converter Service is a serverless document processing platform that helps de
 ### User Personas
 
 **Application Developer** (25-40 years old)
+
 - **Role:** Backend Engineer / Full-Stack Developer
 - **Context:** Building document management systems or content platforms
 - **Pain Points:** Complex PDF processing libraries, scaling issues, infrastructure management overhead
 - **Goals:** Quick integration, reliable processing, minimal infrastructure maintenance
 
 **DevOps Engineer** (30-45 years old)
+
 - **Role:** Infrastructure / Platform Engineer
 - **Context:** Managing document processing pipelines for enterprise applications
 - **Pain Points:** Scaling document processing, monitoring failures, security compliance
@@ -64,4 +66,3 @@ Unlike open PDF conversion APIs, we implement JWT authentication with AWS Secret
 
 - **Webhook Notifications:** Real-time updates sent to client endpoints with processing status
 - **Unique ID Tracking:** Client-provided IDs maintained throughout processing for easy correlation
-- **Batch Processing Support:** Handle multiple PDFs in parallel with individual status tracking
