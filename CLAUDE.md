@@ -26,6 +26,7 @@ sam local invoke PdfConverterFunction --event events/event.json  # Test function
 ### Testing
 
 ```bash
+cd pdf_converter             # Navigate to Lambda function directory
 bundle install               # Install dependencies including RSpec
 bundle exec rspec           # Run RSpec tests
 ```
@@ -49,10 +50,10 @@ The application follows AWS SAM patterns with containerized Ruby Lambda function
 - **template.yaml**: Defines the serverless infrastructure including Lambda function configuration, API Gateway routes, and Docker packaging settings
 - **pdf_converter/app.rb**: Main Lambda handler for PDF conversion with request validation and error handling
 - **pdf_converter/Dockerfile**: Multi-stage Docker build using AWS Lambda Ruby base images
-- **pdf_converter/Gemfile**: Ruby dependencies including JSON parsing
+- **pdf_converter/Gemfile**: Ruby dependencies including JSON parsing, JWT authentication, and AWS SDK
 - **samconfig.toml**: SAM CLI configuration with deployment settings including parallel builds and warm container support
 - **events/**: Contains sample API Gateway proxy events for local testing
-- **spec/**: RSpec test suite for testing the PDF converter functionality
+- **pdf_converter/spec/**: RSpec test suite for testing the PDF converter functionality
 - **.agent-os/product/**: Product documentation including mission, roadmap, and technical decisions
 
 The Lambda function is configured with:

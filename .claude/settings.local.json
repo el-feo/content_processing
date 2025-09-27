@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(bundle exec rspec:*)",
+      "Bash(bundle install:*)",
+      "Bash(export AWS_REGION=us-east-1)",
+      "Bash(export JWT_SECRET_NAME=pdf-converter/jwt-secret)"
     ],
     "deny": [],
     "ask": []

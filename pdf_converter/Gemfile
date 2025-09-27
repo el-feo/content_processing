@@ -9,3 +9,9 @@ end
 
 # JSON handling
 gem "json"
+
+# JWT authentication
+gem "jwt", "~> 2.7"
+
+# AWS SDK for Secrets Manager
+gem "aws-sdk-secretsmanager", "~> 1"

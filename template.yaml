@@ -18,6 +18,9 @@ Resources:
       PackageType: Image
       Architectures:
         - x86_64
+      Environment:
+        Variables:
+          JWT_SECRET_NAME: pdf-converter/jwt-secret
       Events:
         ConvertPdf:
           Type: Api
