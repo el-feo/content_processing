@@ -38,6 +38,15 @@ RSpec.describe 'PDF Download Integration' do
     # Mock successful PDF download
     stub_request(:get, valid_s3_url)
       .to_return(status: 200, body: pdf_content, headers: { 'Content-Type' => 'application/pdf' })
+
+    # Mock PDF converter
+    mock_converter = instance_double(PdfConverter)
+    allow(PdfConverter).to receive(:new).and_return(mock_converter)
+    allow(mock_converter).to receive(:convert_to_images).and_return({
+      success: true,
+      images: ['/tmp/test-123/test-123_page_1.png'],
+      metadata: { page_count: 1, dpi: 300, compression: 6 }
+    })
   end
 
   after do
@@ -48,11 +57,10 @@ RSpec.describe 'PDF Download Integration' do
     it 'processes valid request with PDF download' do
       result = lambda_handler(event: valid_event, context: context)
 
-      expect(result[:statusCode]).to eq(202)
-      expect(JSON.parse(result[:body])['message']).to eq('PDF conversion request received')
+      expect(result[:statusCode]).to eq(200)
+      expect(JSON.parse(result[:body])['message']).to eq('PDF conversion completed')
       expect(JSON.parse(result[:body])['unique_id']).to eq('test-123')
-      expect(JSON.parse(result[:body])['status']).to eq('accepted')
-      expect(JSON.parse(result[:body])['pdf_size']).to eq(pdf_content.bytesize)
+      expect(JSON.parse(result[:body])['status']).to eq('completed')
     end
 
     it 'makes HTTP request to download PDF' do

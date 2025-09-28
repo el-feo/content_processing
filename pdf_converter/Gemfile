@@ -19,4 +19,7 @@ gem 'jwt', '~> 2.7'
 # AWS SDK for Secrets Manager
 gem 'aws-sdk-secretsmanager', '~> 1'
 
+# PDF to image conversion
+gem 'ruby-vips', '~> 2.2'
+
 gem 'rubocop', '~> 1.81'
