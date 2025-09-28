@@ -1,6 +1,8 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    addressable (2.8.7)
+      public_suffix (>= 2.0.2, < 7.0)
     ast (2.4.3)
     aws-eventstream (1.4.0)
     aws-partitions (1.1166.0)
@@ -19,7 +21,11 @@ GEM
       aws-eventstream (~> 1, >= 1.0.2)
     base64 (0.3.0)
     bigdecimal (3.2.3)
+    crack (1.0.0)
+      bigdecimal
+      rexml
     diff-lcs (1.6.2)
+    hashdiff (1.2.1)
     jmespath (1.6.2)
     json (2.15.0)
     jwt (2.10.2)
@@ -32,9 +38,11 @@ GEM
       ast (~> 2.4.1)
       racc
     prism (1.5.1)
+    public_suffix (6.0.2)
     racc (1.8.1)
     rainbow (3.1.1)
     regexp_parser (2.11.3)
+    rexml (3.4.4)
     rspec (3.13.1)
       rspec-core (~> 3.13.0)
       rspec-expectations (~> 3.13.0)
@@ -66,6 +74,10 @@ GEM
     unicode-display_width (3.2.0)
       unicode-emoji (~> 4.1)
     unicode-emoji (4.1.0)
+    webmock (3.25.1)
+      addressable (>= 2.8.0)
+      crack (>= 0.3.2)
+      hashdiff (>= 0.4.0, < 2.0.0)
 
 PLATFORMS
   arm64-darwin-24
@@ -77,6 +89,7 @@ DEPENDENCIES
   jwt (~> 2.7)
   rspec (~> 3.12)
   rubocop (~> 1.81)
+  webmock (~> 3.19)
 
 RUBY VERSION
    ruby 3.4.2p28
