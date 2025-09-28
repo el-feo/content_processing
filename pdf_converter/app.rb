@@ -4,6 +4,8 @@ require 'json'
 require 'net/http'
 require 'uri'
 require_relative 'jwt_authenticator'
+require_relative 'url_validator'
+require_relative 'pdf_downloader'
 
 def lambda_handler(event:, context:)
   # PDF to Image Converter Lambda Handler with JWT Authentication
@@ -36,6 +38,17 @@ def lambda_handler(event:, context:)
   # Log successful authentication for monitoring
   puts "Authentication successful for unique_id: #{request_body['unique_id']}"
 
+  # Download PDF from S3
+  pdf_downloader = PdfDownloader.new
+  download_result = pdf_downloader.download(request_body['source'])
+
+  unless download_result[:success]
+    puts "ERROR: PDF download failed: #{download_result[:error]}"
+    return error_response(422, "PDF download failed: #{download_result[:error]}")
+  end
+
+  puts "PDF downloaded successfully, size: #{download_result[:content].bytesize} bytes"
+
   # Return accepted response for async processing
   {
     statusCode: 202,
@@ -46,7 +59,8 @@ def lambda_handler(event:, context:)
     body: {
       message: 'PDF conversion request received',
       unique_id: request_body['unique_id'],
-      status: 'accepted'
+      status: 'accepted',
+      pdf_size: download_result[:content].bytesize
     }.to_json
   }
 end
@@ -68,9 +82,19 @@ def validate_request(body)
   missing_fields = required_fields - body.keys
   return error_response(400, 'Missing required fields') unless missing_fields.empty?
 
-  # Validate URLs
-  %w[source destination webhook].each do |field|
-    return error_response(400, 'Invalid URL format') unless valid_url?(body[field])
+  # Initialize URL validator
+  url_validator = UrlValidator.new
+
+  # Validate source URL is a signed S3 URL for PDF
+  unless url_validator.valid_s3_signed_url?(body['source'])
+    return error_response(400, 'Invalid source URL: must be a signed S3 URL for PDF file')
+  end
+
+  # Validate destination and webhook URLs
+  %w[destination webhook].each do |field|
+    unless url_validator.valid_url?(body[field])
+      return error_response(400, "Invalid #{field} URL format")
+    end
   end
 
   nil

@@ -9,13 +9,18 @@ require 'timeout'
 class PdfDownloader
   TIMEOUT_SECONDS = 30
   MAX_REDIRECTS = 5
+  MAX_RETRY_ATTEMPTS = 3
+  RETRY_DELAY_BASE = 1 # seconds
   VALID_PDF_MAGIC_NUMBERS = ['%PDF-1.', '%PDF-2.'].freeze
+
+  # HTTP status codes that should trigger retries
+  RETRYABLE_HTTP_CODES = [500, 502, 503, 504].freeze
 
   def initialize
     @logger = Logger.new($stdout) if defined?(Logger)
   end
 
-  # Downloads a PDF from the given signed S3 URL
+  # Downloads a PDF from the given signed S3 URL with retry logic
   # @param url [String] The signed S3 URL to download from
   # @return [Hash] Result hash with :success, :content, :content_type, or :error
   def download(url)
@@ -24,7 +29,7 @@ class PdfDownloader
     log_info("Starting PDF download from: #{sanitize_url(url)}")
 
     uri = URI.parse(url)
-    content, content_type = fetch_with_redirects(uri)
+    content, content_type = download_with_retry(uri)
 
     unless validate_pdf_content(content)
       return error_result('Invalid PDF content: Does not contain valid PDF header')
@@ -39,10 +44,6 @@ class PdfDownloader
     }
   rescue URI::InvalidURIError
     error_result('Invalid URL format')
-  rescue Timeout::Error
-    error_result("Download timeout after #{TIMEOUT_SECONDS} seconds")
-  rescue Net::HTTPError => e
-    error_result("HTTP error: #{e.message}")
   rescue StandardError => e
     error_result("Download failed: #{e.message}")
   end
@@ -58,6 +59,94 @@ class PdfDownloader
   end
 
   private
+
+  # Downloads content with retry logic for transient failures
+  # @param uri [URI] The URI to download from
+  # @return [Array] Array containing [content, content_type]
+  def download_with_retry(uri)
+    attempt = 1
+    last_error = nil
+
+    while attempt <= MAX_RETRY_ATTEMPTS
+      begin
+        return fetch_with_redirects(uri)
+      rescue Timeout::Error => e
+        last_error = "Download timeout after #{TIMEOUT_SECONDS} seconds"
+        if should_retry?(attempt, e)
+          log_retry(attempt, last_error)
+          wait_before_retry(attempt)
+          attempt += 1
+          next
+        else
+          raise StandardError, "#{last_error} after #{attempt} attempts"
+        end
+      rescue Errno::ECONNREFUSED => e
+        last_error = "Connection refused: #{e.message}"
+        if should_retry?(attempt, e)
+          log_retry(attempt, last_error)
+          wait_before_retry(attempt)
+          attempt += 1
+          next
+        else
+          raise StandardError, "#{last_error} after #{attempt} attempts"
+        end
+      rescue SocketError => e
+        last_error = "DNS resolution failed: #{e.message}"
+        if should_retry?(attempt, e)
+          log_retry(attempt, last_error)
+          wait_before_retry(attempt)
+          attempt += 1
+          next
+        else
+          raise StandardError, "#{last_error} after #{attempt} attempts"
+        end
+      rescue OpenSSL::SSL::SSLError => e
+        last_error = "SSL connection failed: #{e.message}"
+        if should_retry?(attempt, e)
+          log_retry(attempt, last_error)
+          wait_before_retry(attempt)
+          attempt += 1
+          next
+        else
+          raise StandardError, "#{last_error} after #{attempt} attempts"
+        end
+      rescue NoMemoryError => e
+        # Don't retry memory errors
+        raise StandardError, "Memory exhaustion during download: #{e.message}"
+      rescue StandardError => e
+        # Check if it's a retryable HTTP error
+        if e.message.match(/HTTP (\d+):/) && RETRYABLE_HTTP_CODES.include?($1.to_i)
+          last_error = e.message
+          if should_retry?(attempt, e)
+            log_retry(attempt, last_error)
+            wait_before_retry(attempt)
+            attempt += 1
+            next
+          else
+            raise StandardError, "#{last_error} after #{attempt} attempts"
+          end
+        else
+          # Non-retryable error, re-raise immediately
+          raise e
+        end
+      end
+    end
+
+    raise StandardError, "#{last_error} after #{MAX_RETRY_ATTEMPTS} attempts"
+  end
+
+  def should_retry?(attempt, error)
+    attempt < MAX_RETRY_ATTEMPTS
+  end
+
+  def log_retry(attempt, error_message)
+    log_info("Retrying download attempt #{attempt + 1} after error: #{error_message}")
+  end
+
+  def wait_before_retry(attempt)
+    delay = RETRY_DELAY_BASE * (2 ** (attempt - 1)) # Exponential backoff
+    sleep(delay)
+  end
 
   def validate_url(url)
     raise ArgumentError, 'URL cannot be nil or empty' if url.nil? || url.empty?

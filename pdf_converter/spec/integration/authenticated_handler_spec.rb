@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'json'
 require 'jwt'
+require 'webmock/rspec'
 require_relative '../../app'
 
 RSpec.describe 'Authenticated Lambda Handler' do
@@ -14,7 +15,7 @@ RSpec.describe 'Authenticated Lambda Handler' do
 
   let(:valid_request_body) do
     {
-      'source' => 'https://s3.amazonaws.com/bucket/input.pdf',
+      'source' => 'https://s3.amazonaws.com/bucket/input.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=credential',
       'destination' => 'https://s3.amazonaws.com/bucket/output/',
       'webhook' => 'https://example.com/webhook',
       'unique_id' => 'test-123'
@@ -24,6 +25,8 @@ RSpec.describe 'Authenticated Lambda Handler' do
   let(:context) { {} }
 
   before do
+    WebMock.disable_net_connect!
+
     # Mock AWS Secrets Manager
     secrets_client = instance_double(Aws::SecretsManager::Client)
     allow(Aws::SecretsManager::Client).to receive(:new).and_return(secrets_client)
@@ -33,6 +36,15 @@ RSpec.describe 'Authenticated Lambda Handler' do
 
     # Set environment variable for testing
     ENV['JWT_SECRET_NAME'] = 'pdf-converter/jwt-secret'
+
+    # Mock PDF download
+    pdf_content = "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF"
+    stub_request(:get, /s3\.amazonaws\.com/)
+      .to_return(status: 200, body: pdf_content, headers: { 'Content-Type' => 'application/pdf' })
+  end
+
+  after do
+    WebMock.reset!
   end
 
   describe 'authenticated requests' do
