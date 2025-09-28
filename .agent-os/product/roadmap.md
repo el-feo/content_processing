@@ -7,9 +7,9 @@
 
 ### Features
 
-- [ ] JWT authentication with AWS Secrets Manager - Validate Bearer tokens against shared secret `S`
-- [ ] Request validation - Verify required fields and format `S`
-- [ ] PDF download from S3 - Retrieve files using signed URLs `M`
+- [x] JWT authentication with AWS Secrets Manager - Validate Bearer tokens against shared secret `S`
+- [x] Request validation - Verify required fields and format `S`
+- [x] PDF download from S3 - Retrieve files using signed URLs `M`
 - [ ] PDF to image conversion - Extract images using libvips/pdfium `L`
 - [ ] Upload images to S3 - Stream converted images to destination `M`
 - [ ] Webhook notifications - Send success/failure status with unique_id `S`
