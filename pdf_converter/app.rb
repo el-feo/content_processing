@@ -3,9 +3,11 @@
 require 'json'
 require 'net/http'
 require 'uri'
+require 'fileutils'
 require_relative 'jwt_authenticator'
 require_relative 'url_validator'
 require_relative 'pdf_downloader'
+require_relative 'pdf_converter'
 
 def lambda_handler(event:, context:)
   # PDF to Image Converter Lambda Handler with JWT Authentication
@@ -49,18 +51,43 @@ def lambda_handler(event:, context:)
 
   puts "PDF downloaded successfully, size: #{download_result[:content].bytesize} bytes"
 
-  # Return accepted response for async processing
+  # Convert PDF to images
+  pdf_converter = PdfConverter.new
+  output_dir = "/tmp/#{request_body['unique_id']}"
+
+  conversion_result = pdf_converter.convert_to_images(
+    pdf_content: download_result[:content],
+    output_dir: output_dir,
+    unique_id: request_body['unique_id'],
+    dpi: ENV['CONVERSION_DPI']&.to_i || 300
+  )
+
+  unless conversion_result[:success]
+    puts "ERROR: PDF conversion failed: #{conversion_result[:error]}"
+    return error_response(422, "PDF conversion failed: #{conversion_result[:error]}")
+  end
+
+  puts "PDF converted successfully: #{conversion_result[:images].size} pages"
+
+  # TODO: Upload images to destination
+  # TODO: Send webhook notification
+
+  # Clean up temporary files
+  FileUtils.rm_rf(output_dir) if Dir.exist?(output_dir)
+
+  # Return success response
   {
-    statusCode: 202,
+    statusCode: 200,
     headers: {
       'Content-Type' => 'application/json',
       'Access-Control-Allow-Origin' => '*'
     },
     body: {
-      message: 'PDF conversion request received',
+      message: 'PDF conversion completed',
       unique_id: request_body['unique_id'],
-      status: 'accepted',
-      pdf_size: download_result[:content].bytesize
+      status: 'completed',
+      pages_converted: conversion_result[:images].size,
+      metadata: conversion_result[:metadata]
     }.to_json
   }
 end

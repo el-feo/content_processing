@@ -21,6 +21,10 @@ Resources:
       Environment:
         Variables:
           JWT_SECRET_NAME: pdf-converter/jwt-secret
+          CONVERSION_DPI: '300'
+          PNG_COMPRESSION: '6'
+          MAX_PAGES: '500'
+          VIPS_WARNING: '0'
       Policies:
         - Statement:
             - Effect: Allow

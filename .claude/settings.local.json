@@ -18,7 +18,8 @@
       "Bash(bundle exec rubocop:*)",
       "mcp__context7__resolve-library-id",
       "mcp__context7__get-library-docs",
-      "Bash(afplay:*)"
+      "Bash(afplay:*)",
+      "Bash(AWS_REGION=us-east-1 JWT_SECRET_NAME=pdf-converter/jwt-secret bundle exec rspec --format progress)"
     ],
     "deny": [],
     "ask": []

@@ -41,6 +41,15 @@ RSpec.describe 'Authenticated Lambda Handler' do
     pdf_content = "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF"
     stub_request(:get, /s3\.amazonaws\.com/)
       .to_return(status: 200, body: pdf_content, headers: { 'Content-Type' => 'application/pdf' })
+
+    # Mock PDF converter
+    mock_converter = instance_double(PdfConverter)
+    allow(PdfConverter).to receive(:new).and_return(mock_converter)
+    allow(mock_converter).to receive(:convert_to_images).and_return({
+      success: true,
+      images: ['/tmp/test-123/test-123_page_1.png'],
+      metadata: { page_count: 1, dpi: 300, compression: 6 }
+    })
   end
 
   after do
@@ -64,11 +73,11 @@ RSpec.describe 'Authenticated Lambda Handler' do
       it 'processes request successfully' do
         response = lambda_handler(event: event, context: context)
 
-        expect(response[:statusCode]).to eq(202)
+        expect(response[:statusCode]).to eq(200)
         body = JSON.parse(response[:body])
-        expect(body['message']).to eq('PDF conversion request received')
+        expect(body['message']).to eq('PDF conversion completed')
         expect(body['unique_id']).to eq('test-123')
-        expect(body['status']).to eq('accepted')
+        expect(body['status']).to eq('completed')
       end
 
       it 'includes CORS headers in successful response' do
@@ -250,12 +259,12 @@ RSpec.describe 'Authenticated Lambda Handler' do
       it 'preserves PDF conversion request structure' do
         response = lambda_handler(event: event, context: context)
 
-        expect(response[:statusCode]).to eq(202)
+        expect(response[:statusCode]).to eq(200)
         body = JSON.parse(response[:body])
         expect(body).to include(
-          'message' => 'PDF conversion request received',
+          'message' => 'PDF conversion completed',
           'unique_id' => 'test-123',
-          'status' => 'accepted'
+          'status' => 'completed'
         )
       end
 
