@@ -20,7 +20,11 @@
       "mcp__context7__get-library-docs",
       "Bash(afplay:*)",
       "Bash(AWS_REGION=us-east-1 JWT_SECRET_NAME=pdf-converter/jwt-secret bundle exec rspec --format progress)",
-      "Bash(sam local invoke:*)"
+      "Bash(sam local invoke:*)",
+      "Bash(AWS_REGION=us-east-1 bundle exec rspec spec/unit/image_uploader_spec.rb --format documentation)",
+      "Bash(AWS_REGION=us-east-1 bundle exec rspec spec/integration/ --format documentation)",
+      "Bash(AWS_REGION=us-east-1 bundle exec rspec spec/integration/ --format progress)",
+      "Bash(AWS_REGION=us-east-1 bundle exec rspec --format progress)"
     ],
     "deny": [],
     "ask": []

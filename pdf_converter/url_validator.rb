@@ -19,6 +19,30 @@ class UrlValidator
     @logger = Logger.new($stdout) if defined?(Logger)
   end
 
+  # Validates if a URL is a properly signed S3 URL for destination uploads
+  # @param url [String] The URL to validate
+  # @return [Boolean] true if URL is a valid signed S3 URL for uploads
+  def valid_s3_destination_url?(url)
+    return false if url.nil? || url.empty?
+
+    begin
+      uri = URI.parse(url)
+
+      # Must be HTTPS
+      return false unless uri.scheme == 'https'
+
+      # Must be S3 hostname
+      return false unless s3_hostname?(uri.host)
+
+      # Must have signature parameters
+      return false unless has_s3_signature_params?(uri.query)
+
+      true
+    rescue URI::InvalidURIError
+      false
+    end
+  end
+
   # Validates if a URL is a properly signed S3 URL for PDF files
   # @param url [String] The URL to validate
   # @return [Boolean] true if URL is a valid signed S3 URL for PDF
