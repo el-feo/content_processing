@@ -109,6 +109,11 @@ def validate_request(body)
   missing_fields = required_fields - body.keys
   return error_response(400, 'Missing required fields') unless missing_fields.empty?
 
+  # Validate unique_id format to prevent path traversal attacks
+  unless body['unique_id'].match?(/\A[a-zA-Z0-9_-]+\z/)
+    return error_response(400, 'Invalid unique_id format: only alphanumeric characters, underscores, and hyphens are allowed')
+  end
+
   # Initialize URL validator
   url_validator = UrlValidator.new
 

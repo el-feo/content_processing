@@ -1,0 +1,30 @@
+{
+  "body": "{\"source\": \"https://s3.amazonaws.com/test-bucket/sample.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test\", \"destination\": \"https://s3.amazonaws.com/test-bucket/output/\", \"webhook\": \"https://example.com/webhook\", \"unique_id\": \"test-123\"}",
+  "resource": "/convert",
+  "path": "/convert",
+  "httpMethod": "POST",
+  "isBase64Encoded": false,
+  "headers": {
+    "Accept": "application/json",
+    "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiMTIzIiwiZXhwIjoxNzU5MDg3NTcxfQ.jz-MfCvAJt5eQl58dkCeOFsn-8EppxpXMqWBBSQ7SlA",
+    "Content-Type": "application/json",
+    "Host": "localhost:3000"
+  },
+  "requestContext": {
+    "accountId": "000000000000",
+    "resourceId": "123456",
+    "stage": "local",
+    "requestId": "c6af9ac6-7b61-11e6-9a41-93e8deadbeef",
+    "requestTime": "09/Apr/2015:12:34:56 +0000",
+    "requestTimeEpoch": 1428582896000,
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "SAM Local Test"
+    },
+    "path": "/convert",
+    "resourcePath": "/convert",
+    "httpMethod": "POST",
+    "apiId": "test-api",
+    "protocol": "HTTP/1.1"
+  }
+}

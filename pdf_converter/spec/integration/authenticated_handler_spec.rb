@@ -276,6 +276,40 @@ RSpec.describe 'Authenticated Lambda Handler' do
         body = JSON.parse(response[:body])
         expect(body['error']).to include('Missing required field')
       end
+
+      it 'rejects path traversal attempts in unique_id' do
+        invalid_request = valid_request_body.dup
+        invalid_request['unique_id'] = '../../../etc/passwd'
+        event['body'] = invalid_request.to_json
+
+        response = lambda_handler(event: event, context: context)
+
+        expect(response[:statusCode]).to eq(400)
+        body = JSON.parse(response[:body])
+        expect(body['error']).to include('Invalid unique_id format')
+      end
+
+      it 'rejects unique_id with special characters' do
+        invalid_request = valid_request_body.dup
+        invalid_request['unique_id'] = 'test/123@#$'
+        event['body'] = invalid_request.to_json
+
+        response = lambda_handler(event: event, context: context)
+
+        expect(response[:statusCode]).to eq(400)
+        body = JSON.parse(response[:body])
+        expect(body['error']).to include('Invalid unique_id format')
+      end
+
+      it 'accepts valid unique_id with allowed characters' do
+        valid_request = valid_request_body.dup
+        valid_request['unique_id'] = 'valid-test_123'
+        event['body'] = valid_request.to_json
+
+        response = lambda_handler(event: event, context: context)
+
+        expect(response[:statusCode]).to eq(200)
+      end
     end
   end
 
