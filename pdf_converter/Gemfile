@@ -11,7 +11,7 @@ group :test do
 end
 
 # JSON handling
-gem 'json'
+gem 'json', '~> 2.9'
 
 # JWT authentication
 gem 'jwt', '~> 2.7'

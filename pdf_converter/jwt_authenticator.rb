@@ -88,9 +88,20 @@ class JwtAuthenticator
   private
 
   def retrieve_secret
-    client = Aws::SecretsManager::Client.new(
+    client_config = {
       region: ENV['AWS_REGION'] || 'us-east-1'
-    )
+    }
+
+    # Add endpoint URL for LocalStack if provided
+    if ENV['AWS_ENDPOINT_URL']
+      client_config[:endpoint] = ENV['AWS_ENDPOINT_URL']
+      # For LocalStack, use dummy credentials and disable SSL verification
+      client_config[:access_key_id] = ENV['AWS_ACCESS_KEY_ID'] || 'test'
+      client_config[:secret_access_key] = ENV['AWS_SECRET_ACCESS_KEY'] || 'test'
+      client_config[:ssl_verify_peer] = false
+    end
+
+    client = Aws::SecretsManager::Client.new(client_config)
 
     secret_response = client.get_secret_value(secret_id: @secret_name)
     @secret = secret_response.secret_string
