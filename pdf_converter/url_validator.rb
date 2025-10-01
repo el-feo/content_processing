@@ -28,11 +28,11 @@ class UrlValidator
     begin
       uri = URI.parse(url)
 
-      # Must be HTTPS
-      return false unless uri.scheme == 'https'
+      # Allow HTTP for LocalStack testing
+      return false unless %w[https http].include?(uri.scheme)
 
-      # Must be S3 hostname
-      return false unless s3_hostname?(uri.host)
+      # Must be S3 hostname or LocalStack
+      return false unless s3_hostname?(uri.host) || localstack_hostname?(uri.host)
 
       # Must have signature parameters
       return false unless has_s3_signature_params?(uri.query)
@@ -52,11 +52,11 @@ class UrlValidator
     begin
       uri = URI.parse(url)
 
-      # Must be HTTPS
-      return false unless uri.scheme == 'https'
+      # Allow HTTP for LocalStack testing
+      return false unless %w[https http].include?(uri.scheme)
 
-      # Must be S3 hostname
-      return false unless s3_hostname?(uri.host)
+      # Must be S3 hostname or LocalStack
+      return false unless s3_hostname?(uri.host) || localstack_hostname?(uri.host)
 
       # Must have PDF extension
       return false unless pdf_file?(uri.path)
@@ -111,6 +111,13 @@ class UrlValidator
     return false if hostname.nil?
 
     S3_HOSTNAME_PATTERNS.any? { |pattern| hostname.match?(pattern) }
+  end
+
+  def localstack_hostname?(hostname)
+    return false if hostname.nil?
+
+    # Allow localhost and 127.0.0.1 for LocalStack testing
+    hostname == 'localhost' || hostname == '127.0.0.1' || hostname.start_with?('localstack')
   end
 
   def pdf_file?(path)

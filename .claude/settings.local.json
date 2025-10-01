@@ -24,7 +24,9 @@
       "Bash(AWS_REGION=us-east-1 bundle exec rspec spec/unit/image_uploader_spec.rb --format documentation)",
       "Bash(AWS_REGION=us-east-1 bundle exec rspec spec/integration/ --format documentation)",
       "Bash(AWS_REGION=us-east-1 bundle exec rspec spec/integration/ --format progress)",
-      "Bash(AWS_REGION=us-east-1 bundle exec rspec --format progress)"
+      "Bash(AWS_REGION=us-east-1 bundle exec rspec --format progress)",
+      "Bash(localstack:*)",
+      "Bash(LOCALSTACK_ENDPOINT=http://localhost:4566 AWS_ENDPOINT_URL=http://localhost:4566 AWS_REGION=us-east-1 bundle exec rspec spec/integration/localstack_integration_spec.rb --format documentation)"
     ],
     "deny": [],
     "ask": []
