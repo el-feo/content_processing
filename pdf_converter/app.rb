@@ -8,8 +8,10 @@ require_relative 'jwt_authenticator'
 require_relative 'url_validator'
 require_relative 'pdf_downloader'
 require_relative 'pdf_converter'
+require_relative 'image_uploader'
 
 def lambda_handler(event:, context:)
+  start_time = Time.now.to_f
   # PDF to Image Converter Lambda Handler with JWT Authentication
   #
   # Expected POST body:
@@ -69,11 +71,41 @@ def lambda_handler(event:, context:)
 
   puts "PDF converted successfully: #{conversion_result[:images].size} pages"
 
-  # TODO: Upload images to destination
-  # TODO: Send webhook notification
+  # Upload images to destination
+  upload_result = upload_images_to_s3(
+    destination_url: request_body['destination'],
+    images: conversion_result[:images],
+    unique_id: request_body['unique_id']
+  )
+
+  unless upload_result[:success]
+    puts "ERROR: Image upload failed: #{upload_result[:error]}"
+    # Clean up before returning error
+    FileUtils.rm_rf(output_dir)
+    return error_response(422, "Image upload failed: #{upload_result[:error]}")
+  end
+
+  puts "Images uploaded successfully: #{upload_result[:uploaded_urls].size} files"
+
+  # Send webhook notification if provided
+  if request_body['webhook']
+    webhook_result = send_webhook_notification(
+      webhook_url: request_body['webhook'],
+      unique_id: request_body['unique_id'],
+      status: 'completed',
+      images: upload_result[:uploaded_urls],
+      page_count: conversion_result[:images].size,
+      processing_time_ms: ((Time.now.to_f - start_time) * 1000).to_i
+    )
+
+    if webhook_result[:error]
+      puts "WARNING: Webhook notification failed: #{webhook_result[:error]}"
+      # Don't fail the request if webhook fails, just log it
+    end
+  end
 
   # Clean up temporary files
-  FileUtils.rm_rf(output_dir) if Dir.exist?(output_dir)
+  FileUtils.rm_rf(output_dir)
 
   # Return success response
   {
@@ -83,7 +115,8 @@ def lambda_handler(event:, context:)
       'Access-Control-Allow-Origin' => '*'
     },
     body: {
-      message: 'PDF conversion completed',
+      message: 'PDF conversion and upload completed',
+      images: upload_result[:uploaded_urls],
       unique_id: request_body['unique_id'],
       status: 'completed',
       pages_converted: conversion_result[:images].size,
@@ -111,7 +144,8 @@ def validate_request(body)
 
   # Validate unique_id format to prevent path traversal attacks
   unless body['unique_id'].match?(/\A[a-zA-Z0-9_-]+\z/)
-    return error_response(400, 'Invalid unique_id format: only alphanumeric characters, underscores, and hyphens are allowed')
+    return error_response(400, 'Invalid unique_id format: only alphanumeric characters, underscores, ' \
+                               'and hyphens are allowed')
   end
 
   # Initialize URL validator
@@ -122,11 +156,14 @@ def validate_request(body)
     return error_response(400, 'Invalid source URL: must be a signed S3 URL for PDF file')
   end
 
-  # Validate destination and webhook URLs
-  %w[destination webhook].each do |field|
-    unless url_validator.valid_url?(body[field])
-      return error_response(400, "Invalid #{field} URL format")
-    end
+  # Validate destination URL is a signed S3 URL
+  unless url_validator.valid_s3_destination_url?(body['destination'])
+    return error_response(400, 'Invalid destination URL: must be a signed S3 URL')
+  end
+
+  # Validate webhook URL if provided
+  if body['webhook'] && !url_validator.valid_url?(body['webhook'])
+    return error_response(400, 'Invalid webhook URL format')
   end
 
   nil
@@ -173,6 +210,84 @@ rescue StandardError => e
   # Handle any other unexpected errors
   puts "ERROR: Unexpected authentication error: #{e.message}"
   { authenticated: false, error: 'Authentication service error' }
+end
+
+def upload_images_to_s3(destination_url:, images:, unique_id:)
+  uploader = ImageUploader.new
+
+  # Parse the destination URL to get the base path
+  uri = URI.parse(destination_url)
+  base_path = uri.path.end_with?('/') ? uri.path : "#{uri.path}/"
+
+  # Generate individual URLs for each image
+  image_urls = []
+  image_contents = []
+
+  images.each_with_index do |image_path, index|
+    # Create URL for this specific image
+    image_uri = uri.dup
+    image_filename = "page-#{index + 1}.png"
+    image_uri.path = "#{base_path}#{image_filename}"
+
+    image_urls << image_uri.to_s
+    image_contents << File.read(image_path, mode: 'rb')
+  end
+
+  # Upload all images concurrently
+  upload_results = uploader.upload_batch(image_urls, image_contents, 'image/png')
+
+  # Check if all uploads succeeded
+  failed_uploads = upload_results.reject { |r| r[:success] }
+
+  if failed_uploads.any?
+    error_messages = failed_uploads.map { |r| r[:error] }.uniq.join(', ')
+    return {
+      success: false,
+      error: "Failed to upload #{failed_uploads.size} images: #{error_messages}"
+    }
+  end
+
+  {
+    success: true,
+    uploaded_urls: image_urls.map { |url| url.split('?').first }, # Return URLs without query params
+    etags: upload_results.map { |r| r[:etag] }
+  }
+rescue StandardError => e
+  {
+    success: false,
+    error: "Upload error: #{e.message}"
+  }
+end
+
+def send_webhook_notification(webhook_url:, unique_id:, status:, images:, page_count:, processing_time_ms:)
+  uri = URI.parse(webhook_url)
+
+  payload = {
+    unique_id: unique_id,
+    status: status,
+    images: images,
+    page_count: page_count,
+    processing_time_ms: processing_time_ms
+  }
+
+  request = Net::HTTP::Post.new(uri)
+  request['Content-Type'] = 'application/json'
+  request.body = payload.to_json
+
+  response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
+    http.read_timeout = 10
+    http.open_timeout = 10
+    http.request(request)
+  end
+
+  if response.is_a?(Net::HTTPSuccess)
+    puts "Webhook notification sent successfully to #{webhook_url}"
+    { success: true }
+  else
+    { error: "Webhook returned HTTP #{response.code}: #{response.message}" }
+  end
+rescue StandardError => e
+  { error: "Webhook error: #{e.message}" }
 end
 
 def authentication_error_response(error_message)

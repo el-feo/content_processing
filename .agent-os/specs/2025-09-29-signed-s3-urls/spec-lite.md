@@ -1,0 +1,3 @@
+# Spec Summary (Lite)
+
+Implement support for pre-signed S3 URLs in the PDF converter service to enable secure, direct S3 access for source PDFs and destination images. Clients provide temporary, scoped S3 URLs in the request body, eliminating the need for the service to manage long-term S3 credentials and improving security through time-limited access. The service validates URLs, downloads PDFs from source URLs, converts them to images, and uploads results to destination URLs with comprehensive error handling.

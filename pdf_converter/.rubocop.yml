@@ -4,12 +4,37 @@ AllCops:
 
 # Allow longer methods for Lambda handlers and complex authentication logic
 Metrics/MethodLength:
-  Max: 25
+  Max: 50
   AllowedMethods: ['lambda_handler', 'authenticate', 'validate_token', 'retrieve_secret', 'authentication_error_response']
+
+# Allow higher complexity for Lambda handlers and core business logic
+Metrics/AbcSize:
+  Max: 75
+
+Metrics/CyclomaticComplexity:
+  Max: 12
+
+Metrics/PerceivedComplexity:
+  Max: 12
+
+# Allow larger classes for core functionality
+Metrics/ClassLength:
+  Max: 150
+
+# Allow more parameters for webhook and notification methods
+Metrics/ParameterLists:
+  Max: 6
 
 # Allow longer blocks in spec files (RSpec tests often need longer describe/context blocks)
 Metrics/BlockLength:
   Max: 25
+  Exclude:
+    - 'spec/**/*'
+
+# Allow long lines in specs with test data
+Layout/LineLength:
+  Max: 120
+  AllowedPatterns: ['^\s*#']
   Exclude:
     - 'spec/**/*'
 

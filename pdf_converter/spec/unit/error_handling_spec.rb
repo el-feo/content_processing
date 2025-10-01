@@ -6,7 +6,9 @@ require_relative '../../pdf_downloader'
 
 RSpec.describe 'Error Handling and Retry Logic' do
   let(:valid_s3_url) { 'https://s3.amazonaws.com/bucket/file.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256' }
-  let(:pdf_content) { "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF" }
+  let(:pdf_content) do
+    "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF"
+  end
 
   before do
     WebMock.disable_net_connect!
@@ -149,7 +151,7 @@ RSpec.describe 'Error Handling and Retry Logic' do
 
     it 'successfully downloads large files' do
       downloader = PdfDownloader.new
-      large_content = "%PDF-1.4\n" + "x" * (5 * 1024 * 1024) + "\n%%EOF"
+      large_content = "%PDF-1.4\n#{'x' * (5 * 1024 * 1024)}\n%%EOF"
 
       stub_request(:get, valid_s3_url)
         .to_return(status: 200, body: large_content, headers: { 'Content-Type' => 'application/pdf' })

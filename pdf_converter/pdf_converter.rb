@@ -31,9 +31,7 @@ class PdfConverter
     FileUtils.mkdir_p(output_dir)
 
     # Validate PDF content
-    unless valid_pdf?(pdf_content)
-      return error_result('Invalid PDF content')
-    end
+    return error_result('Invalid PDF content') unless valid_pdf?(pdf_content)
 
     # Create temporary file for PDF
     temp_pdf = create_temp_pdf(pdf_content)
@@ -42,13 +40,9 @@ class PdfConverter
       # Get page count
       page_count = get_page_count_from_file(temp_pdf.path)
 
-      if page_count == 0
-        return error_result('PDF has no pages')
-      end
+      return error_result('PDF has no pages') if page_count.zero?
 
-      if page_count > @max_pages
-        return error_result("PDF has #{page_count} pages, exceeding maximum of #{@max_pages}")
-      end
+      return error_result("PDF has #{page_count} pages, exceeding maximum of #{@max_pages}") if page_count > @max_pages
 
       # Convert pages to images
       images = []
@@ -66,7 +60,7 @@ class PdfConverter
         log_info("Converted page #{page_index + 1}/#{page_count}")
 
         # Force garbage collection every 10 pages for memory management
-        GC.start if (page_index + 1) % 10 == 0
+        GC.start if ((page_index + 1) % 10).zero?
       end
 
       {
@@ -107,6 +101,7 @@ class PdfConverter
 
   def valid_pdf?(content)
     return false if content.nil? || content.empty?
+
     content.start_with?('%PDF-')
   end
 

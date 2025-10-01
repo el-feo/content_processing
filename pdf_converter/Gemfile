@@ -6,6 +6,7 @@ ruby '~> 3.4'
 
 # Testing
 group :test do
+  gem 'aws-sdk-s3', '~> 1'
   gem 'rspec', '~> 3.12'
   gem 'webmock', '~> 3.19'
 end
@@ -21,5 +22,8 @@ gem 'aws-sdk-secretsmanager', '~> 1'
 
 # PDF to image conversion
 gem 'ruby-vips', '~> 2.2'
+
+# Async processing for batch uploads
+gem 'async', '~> 2.6'
 
 gem 'rubocop', '~> 1.81'

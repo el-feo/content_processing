@@ -4,6 +4,8 @@ require 'spec_helper'
 require 'json'
 require 'jwt'
 require 'webmock/rspec'
+require 'fileutils'
+require 'base64'
 require_relative '../../app'
 
 RSpec.describe 'Authenticated Lambda Handler' do
@@ -16,7 +18,7 @@ RSpec.describe 'Authenticated Lambda Handler' do
   let(:valid_request_body) do
     {
       'source' => 'https://s3.amazonaws.com/bucket/input.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=credential',
-      'destination' => 'https://s3.amazonaws.com/bucket/output/',
+      'destination' => 'https://s3.amazonaws.com/bucket/output/?X-Amz-Algorithm=AWS4-HMAC-SHA256',
       'webhook' => 'https://example.com/webhook',
       'unique_id' => 'test-123'
     }
@@ -46,10 +48,33 @@ RSpec.describe 'Authenticated Lambda Handler' do
     mock_converter = instance_double(PdfConverter)
     allow(PdfConverter).to receive(:new).and_return(mock_converter)
     allow(mock_converter).to receive(:convert_to_images).and_return({
-      success: true,
-      images: ['/tmp/test-123/test-123_page_1.png'],
-      metadata: { page_count: 1, dpi: 300, compression: 6 }
-    })
+                                                                      success: true,
+                                                                      images: ['/tmp/test-123/test-123_page_1.png'],
+                                                                      metadata: { page_count: 1, dpi: 300,
+                                                                                  compression: 6 }
+                                                                    })
+
+    # Mock image uploader
+    mock_uploader = instance_double(ImageUploader)
+    allow(ImageUploader).to receive(:new).and_return(mock_uploader)
+    allow(mock_uploader).to receive(:upload_batch).and_return([{
+                                                                success: true,
+                                                                etag: '"abc123"',
+                                                                index: 0
+                                                              }])
+
+    # Mock S3 upload requests
+    stub_request(:put, /s3\.amazonaws\.com.*page-1\.png/)
+      .to_return(status: 200, body: '', headers: { 'ETag' => '"abc123"' })
+
+    # Mock webhook calls
+    stub_request(:post, 'https://example.com/webhook')
+      .to_return(status: 200, body: '', headers: {})
+
+    # Ensure test image file exists
+    FileUtils.mkdir_p('/tmp/test-123')
+    File.write('/tmp/test-123/test-123_page_1.png',
+               Base64.decode64('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='))
   end
 
   after do
@@ -75,7 +100,7 @@ RSpec.describe 'Authenticated Lambda Handler' do
 
         expect(response[:statusCode]).to eq(200)
         body = JSON.parse(response[:body])
-        expect(body['message']).to eq('PDF conversion completed')
+        expect(body['message']).to eq('PDF conversion and upload completed')
         expect(body['unique_id']).to eq('test-123')
         expect(body['status']).to eq('completed')
       end
@@ -262,7 +287,7 @@ RSpec.describe 'Authenticated Lambda Handler' do
         expect(response[:statusCode]).to eq(200)
         body = JSON.parse(response[:body])
         expect(body).to include(
-          'message' => 'PDF conversion completed',
+          'message' => 'PDF conversion and upload completed',
           'unique_id' => 'test-123',
           'status' => 'completed'
         )

@@ -7,7 +7,9 @@ require 'webmock/rspec'
 RSpec.describe PdfDownloader do
   let(:valid_s3_url) { 'https://s3.amazonaws.com/bucket/file.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256' }
   let(:invalid_url) { 'not-a-url' }
-  let(:pdf_content) { "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF" }
+  let(:pdf_content) do
+    "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF"
+  end
 
   before do
     WebMock.disable_net_connect!
@@ -103,7 +105,7 @@ RSpec.describe PdfDownloader do
     end
 
     context 'with large files' do
-      let(:large_pdf_content) { "%PDF-1.4\n" + "x" * (10 * 1024 * 1024) + "\n%%EOF" } # 10MB+ content
+      let(:large_pdf_content) { "%PDF-1.4\n#{'x' * (10 * 1024 * 1024)}\n%%EOF" } # 10MB+ content
 
       before do
         stub_request(:get, valid_s3_url)

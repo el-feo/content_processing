@@ -4,9 +4,19 @@ require 'aws-sdk-secretsmanager'
 
 module AwsConfig
   def self.secrets_manager_client
-    @secrets_manager_client ||= Aws::SecretsManager::Client.new(
+    config = {
       region: ENV['AWS_REGION'] || ENV['AWS_DEFAULT_REGION'] || 'us-east-1'
-    )
+    }
+
+    # Support LocalStack and custom endpoints
+    if ENV['AWS_ENDPOINT_URL']
+      puts "DEBUG: Using custom endpoint: #{ENV['AWS_ENDPOINT_URL']}"
+      config[:endpoint] = ENV['AWS_ENDPOINT_URL']
+      config[:credentials] = Aws::Credentials.new('test', 'test')
+      config[:force_path_style] = true # Required for LocalStack S3
+    end
+
+    Aws::SecretsManager::Client.new(config)
   end
 
   def self.region
