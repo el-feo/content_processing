@@ -81,7 +81,7 @@ def lambda_handler(event:, context:)
   unless upload_result[:success]
     puts "ERROR: Image upload failed: #{upload_result[:error]}"
     # Clean up before returning error
-    FileUtils.rm_rf(output_dir) if Dir.exist?(output_dir)
+    FileUtils.rm_rf(output_dir)
     return error_response(422, "Image upload failed: #{upload_result[:error]}")
   end
 
@@ -105,7 +105,7 @@ def lambda_handler(event:, context:)
   end
 
   # Clean up temporary files
-  FileUtils.rm_rf(output_dir) if Dir.exist?(output_dir)
+  FileUtils.rm_rf(output_dir)
 
   # Return success response
   {
@@ -144,7 +144,8 @@ def validate_request(body)
 
   # Validate unique_id format to prevent path traversal attacks
   unless body['unique_id'].match?(/\A[a-zA-Z0-9_-]+\z/)
-    return error_response(400, 'Invalid unique_id format: only alphanumeric characters, underscores, and hyphens are allowed')
+    return error_response(400, 'Invalid unique_id format: only alphanumeric characters, underscores, ' \
+                               'and hyphens are allowed')
   end
 
   # Initialize URL validator

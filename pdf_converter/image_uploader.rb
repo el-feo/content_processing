@@ -56,9 +56,7 @@ class ImageUploader
   # @param content_type [String] The content type for all images
   # @return [Array<Hash>] Array of result hashes for each upload
   def upload_batch(urls, images, content_type = 'image/png')
-    unless urls.size == images.size
-      raise ArgumentError, 'Number of URLs must match number of images'
-    end
+    raise ArgumentError, 'Number of URLs must match number of images' unless urls.size == images.size
 
     log_info("Starting batch upload of #{urls.size} images")
     results = []
@@ -133,10 +131,10 @@ class ImageUploader
   end
 
   def handle_retry(attempt, error_message)
-    if attempt < MAX_RETRY_ATTEMPTS
-      log_info("Retrying upload attempt #{attempt + 1} after error: #{error_message}")
-      wait_before_retry(attempt)
-    end
+    return unless attempt < MAX_RETRY_ATTEMPTS
+
+    log_info("Retrying upload attempt #{attempt + 1} after error: #{error_message}")
+    wait_before_retry(attempt)
   end
 
   def retryable_error?(error)
@@ -145,14 +143,14 @@ class ImageUploader
     return true if error.is_a?(OpenSSL::SSL::SSLError)
 
     if error.message.match(/HTTP (\d+):/)
-      RETRYABLE_HTTP_CODES.include?($1.to_i)
+      RETRYABLE_HTTP_CODES.include?(::Regexp.last_match(1).to_i)
     else
       false
     end
   end
 
   def wait_before_retry(attempt)
-    delay = RETRY_DELAY_BASE * (2 ** (attempt - 1)) # Exponential backoff
+    delay = RETRY_DELAY_BASE * (2**(attempt - 1)) # Exponential backoff
     sleep(delay)
   end
 
@@ -199,7 +197,7 @@ class ImageUploader
   def sanitize_url(url)
     uri = URI.parse(url)
     "#{uri.scheme}://#{uri.host}#{uri.path}[QUERY_PARAMS_HIDDEN]"
-  rescue
+  rescue StandardError
     '[URL_PARSE_ERROR]'
   end
 end

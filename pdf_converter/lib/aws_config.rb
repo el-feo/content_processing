@@ -13,7 +13,7 @@ module AwsConfig
       puts "DEBUG: Using custom endpoint: #{ENV['AWS_ENDPOINT_URL']}"
       config[:endpoint] = ENV['AWS_ENDPOINT_URL']
       config[:credentials] = Aws::Credentials.new('test', 'test')
-      config[:force_path_style] = true  # Required for LocalStack S3
+      config[:force_path_style] = true # Required for LocalStack S3
     end
 
     Aws::SecretsManager::Client.new(config)

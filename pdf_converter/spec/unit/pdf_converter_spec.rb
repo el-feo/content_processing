@@ -5,7 +5,7 @@ require 'tempfile'
 require 'fileutils'
 require_relative '../../pdf_converter'
 
-RSpec.describe PdfConverter, skip: "ruby-vips not available in local environment" do
+RSpec.describe PdfConverter, skip: 'ruby-vips not available in local environment' do
   let(:converter) { PdfConverter.new }
   let(:sample_pdf_path) { File.expand_path('../fixtures/sample.pdf', __dir__) }
   let(:output_dir) { Dir.mktmpdir('pdf_converter_test') }
@@ -15,12 +15,13 @@ RSpec.describe PdfConverter, skip: "ruby-vips not available in local environment
     # Create a sample PDF for testing
     FileUtils.mkdir_p(File.dirname(sample_pdf_path))
     unless File.exist?(sample_pdf_path)
-      File.write(sample_pdf_path, "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF")
+      File.write(sample_pdf_path,
+                 "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF")
     end
   end
 
   after do
-    FileUtils.rm_rf(output_dir) if Dir.exist?(output_dir)
+    FileUtils.rm_rf(output_dir)
   end
 
   describe '#initialize' do
@@ -79,7 +80,7 @@ RSpec.describe PdfConverter, skip: "ruby-vips not available in local environment
 
     it 'handles missing output directory' do
       non_existent_dir = '/tmp/non_existent_dir_12345'
-      FileUtils.rm_rf(non_existent_dir) if Dir.exist?(non_existent_dir)
+      FileUtils.rm_rf(non_existent_dir)
 
       result = converter.convert_to_images(
         pdf_content: File.read(sample_pdf_path),

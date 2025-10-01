@@ -11,7 +11,9 @@ RSpec.describe 'PDF Download Integration' do
   let(:valid_s3_url) { 'https://s3.amazonaws.com/bucket/file.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=credential' }
   let(:destination_url) { 'https://s3.amazonaws.com/output-bucket/?X-Amz-Algorithm=AWS4-HMAC-SHA256' }
   let(:webhook_url) { 'https://example.com/webhook' }
-  let(:pdf_content) { "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF" }
+  let(:pdf_content) do
+    "%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n>>\nendobj\nxref\n0 1\n0000000000 65535 f \ntrailer\n<<\n/Size 1\n/Root 1 0 R\n>>\nstartxref\n9\n%%EOF"
+  end
 
   let(:valid_event) do
     {
@@ -45,19 +47,20 @@ RSpec.describe 'PDF Download Integration' do
     mock_converter = instance_double(PdfConverter)
     allow(PdfConverter).to receive(:new).and_return(mock_converter)
     allow(mock_converter).to receive(:convert_to_images).and_return({
-      success: true,
-      images: ['/tmp/test-123/test-123_page_1.png'],
-      metadata: { page_count: 1, dpi: 300, compression: 6 }
-    })
+                                                                      success: true,
+                                                                      images: ['/tmp/test-123/test-123_page_1.png'],
+                                                                      metadata: { page_count: 1, dpi: 300,
+                                                                                  compression: 6 }
+                                                                    })
 
     # Mock image uploader
     mock_uploader = instance_double(ImageUploader)
     allow(ImageUploader).to receive(:new).and_return(mock_uploader)
     allow(mock_uploader).to receive(:upload_batch).and_return([{
-      success: true,
-      etag: '"abc123"',
-      index: 0
-    }])
+                                                                success: true,
+                                                                etag: '"abc123"',
+                                                                index: 0
+                                                              }])
 
     # Mock S3 upload requests
     stub_request(:put, /s3\.amazonaws\.com.*page-1\.png/)
@@ -69,7 +72,8 @@ RSpec.describe 'PDF Download Integration' do
 
     # Ensure test image file exists
     FileUtils.mkdir_p('/tmp/test-123')
-    File.write('/tmp/test-123/test-123_page_1.png', Base64.decode64('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='))
+    File.write('/tmp/test-123/test-123_page_1.png',
+               Base64.decode64('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='))
   end
 
   after do

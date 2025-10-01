@@ -4,11 +4,11 @@ require 'spec_helper'
 
 RSpec.describe 'Docker Environment' do
   describe 'ruby-vips installation' do
-    it 'can load ruby-vips gem', skip: "ruby-vips not available in local environment" do
+    it 'can load ruby-vips gem', skip: 'ruby-vips not available in local environment' do
       expect { require 'vips' }.not_to raise_error
     end
 
-    it 'has correct ruby-vips version', skip: "ruby-vips not available in local environment" do
+    it 'has correct ruby-vips version', skip: 'ruby-vips not available in local environment' do
       require 'vips'
       # ruby-vips 2.2 requires libvips 8.6+
       expect(Vips::VERSION).to match(/\d+\.\d+/)

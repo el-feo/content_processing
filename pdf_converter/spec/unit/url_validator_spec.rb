@@ -16,11 +16,11 @@ RSpec.describe UrlValidator do
 
     let(:invalid_s3_urls) do
       [
-        'https://example.com/file.pdf',  # Not S3
-        'https://s3.amazonaws.com/bucket/file.pdf',  # No signature params
-        'http://s3.amazonaws.com/bucket/file.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256',  # HTTP not HTTPS
-        'https://s3.amazonaws.com/bucket/file.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256',  # Not PDF
-        'not-a-url',  # Invalid URL format
+        'https://example.com/file.pdf', # Not S3
+        'https://s3.amazonaws.com/bucket/file.pdf', # No signature params
+        'http://s3.amazonaws.com/bucket/file.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256', # HTTP not HTTPS
+        'https://s3.amazonaws.com/bucket/file.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256', # Not PDF
+        'not-a-url', # Invalid URL format
         '',  # Empty string
         nil  # Nil value
       ]
@@ -108,9 +108,9 @@ RSpec.describe UrlValidator do
       validator = described_class.new
 
       invalid_urls = [
-        'https://s3.amazonaws.com/bucket/output/',  # No signature
-        'http://bucket.s3.amazonaws.com/output/?X-Amz-Algorithm=AWS4',  # HTTP not HTTPS
-        'https://example.com/output/?X-Amz-Algorithm=AWS4',  # Not S3
+        'https://s3.amazonaws.com/bucket/output/', # No signature
+        'http://bucket.s3.amazonaws.com/output/?X-Amz-Algorithm=AWS4', # HTTP not HTTPS
+        'https://example.com/output/?X-Amz-Algorithm=AWS4', # Not S3
         '',
         nil
       ]
@@ -130,7 +130,7 @@ RSpec.describe UrlValidator do
 
       expect(info[:bucket]).to eq('my-bucket')
       expect(info[:key]).to eq('folder/file.pdf')
-      expect(info[:region]).to eq('us-east-1')  # Default region
+      expect(info[:region]).to eq('us-east-1') # Default region
     end
 
     it 'extracts bucket and key from virtual-hosted-style URLs' do

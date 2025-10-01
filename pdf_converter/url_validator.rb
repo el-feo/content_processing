@@ -6,7 +6,7 @@ require 'uri'
 # and general URL validation with additional S3-specific checks
 class UrlValidator
   S3_HOSTNAME_PATTERNS = [
-    /\As3\.amazonaws\.com\z/,                    # s3.amazonaws.com (US Standard)
+    /\As3\.amazonaws\.com\z/, # s3.amazonaws.com (US Standard)
     /\As3\.([a-z0-9-]+)\.amazonaws\.com\z/,     # s3.region.amazonaws.com
     /\A([a-z0-9.-]+)\.s3\.amazonaws\.com\z/,    # bucket.s3.amazonaws.com
     /\A([a-z0-9.-]+)\.s3\.([a-z0-9-]+)\.amazonaws\.com\z/ # bucket.s3.region.amazonaws.com
@@ -35,7 +35,7 @@ class UrlValidator
       return false unless s3_hostname?(uri.host) || localstack_hostname?(uri.host)
 
       # Must have signature parameters
-      return false unless has_s3_signature_params?(uri.query)
+      return false unless s3_signature_params?(uri.query)
 
       true
     rescue URI::InvalidURIError
@@ -62,7 +62,7 @@ class UrlValidator
       return false unless pdf_file?(uri.path)
 
       # Must have required signature parameters
-      return false unless has_s3_signature_params?(uri.query)
+      return false unless s3_signature_params?(uri.query)
 
       true
     rescue URI::InvalidURIError
@@ -97,10 +97,8 @@ class UrlValidator
         extract_path_style_info(uri)
       elsif virtual_hosted_style_s3?(uri.host)
         extract_virtual_hosted_info(uri)
-      else
-        nil
       end
-    rescue URI::InvalidURIError, StandardError
+    rescue StandardError
       nil
     end
   end
@@ -128,7 +126,7 @@ class UrlValidator
     PDF_EXTENSIONS.any? { |ext| filename.downcase.end_with?(ext) }
   end
 
-  def has_s3_signature_params?(query_string)
+  def s3_signature_params?(query_string)
     return false if query_string.nil? || query_string.empty?
 
     query_params = URI.decode_www_form(query_string).to_h
@@ -165,7 +163,7 @@ class UrlValidator
     return nil if hostname_parts.length < 4
 
     bucket = hostname_parts[0]
-    key = uri.path.start_with?('/') ? uri.path[1..-1] : uri.path
+    key = uri.path.start_with?('/') ? uri.path[1..] : uri.path
     region = extract_region_from_hostname(uri.host) || 'us-east-1'
 
     {
@@ -177,13 +175,9 @@ class UrlValidator
 
   def extract_region_from_hostname(hostname)
     # Extract region from hostnames like s3.us-west-2.amazonaws.com
-    if hostname.match(/s3\.([a-z0-9-]+)\.amazonaws\.com/)
-      $1
-    elsif hostname.match(/\.s3\.([a-z0-9-]+)\.amazonaws\.com/)
-      $1
-    else
-      nil
-    end
+    match = hostname.match(/s3\.([a-z0-9-]+)\.amazonaws\.com/) ||
+            hostname.match(/\.s3\.([a-z0-9-]+)\.amazonaws\.com/)
+    match ? match[1] : nil
   end
 
   def log_debug(message)

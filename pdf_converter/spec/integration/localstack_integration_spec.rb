@@ -67,8 +67,7 @@ RSpec.describe 'LocalStack Integration' do
       )
 
       # Extract base path for destination
-      dest_uri = URI.parse(dest_url)
-      dest_base = "#{dest_uri.scheme}://#{dest_uri.host}:#{dest_uri.port}#{File.dirname(dest_uri.path)}/"
+      URI.parse(dest_url)
       # Reconstruct with query params from one of the presigned URLs
       dest_base_with_params = dest_url.sub('/page-1.png', '/')
 
@@ -100,7 +99,7 @@ RSpec.describe 'LocalStack Integration' do
       expect(body['pages_converted']).to be > 0
 
       # Verify images were uploaded to S3
-      body['images'].each_with_index do |image_url, index|
+      body['images'].each_with_index do |_image_url, index|
         key = "output/page-#{index + 1}.png"
 
         # Check if object exists in S3
@@ -109,7 +108,7 @@ RSpec.describe 'LocalStack Integration' do
           expect(response.content_type).to eq('image/png')
           expect(response.content_length).to be > 0
         rescue Aws::S3::Errors::NotFound
-          fail "Expected image #{key} not found in S3"
+          raise "Expected image #{key} not found in S3"
         end
       end
     end
