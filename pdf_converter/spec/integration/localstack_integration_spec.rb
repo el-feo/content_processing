@@ -5,11 +5,25 @@ require_relative '../../app'
 require 'aws-sdk-s3'
 require 'aws-sdk-secretsmanager'
 
+# Allow connections to LocalStack if WebMock is loaded
+begin
+  require 'webmock'
+  # Allow all connections for LocalStack integration tests
+  WebMock.allow_net_connect!
+rescue LoadError
+  # WebMock not loaded, no action needed
+end
+
 RSpec.describe 'LocalStack Integration' do
   let(:localstack_endpoint) { ENV['LOCALSTACK_ENDPOINT'] || 'http://localhost:4566' }
   let(:bucket_name) { 'pdf-converter-test' }
   let(:jwt_secret) { 'test-secret-key-for-localstack-testing-12345' }
   let(:secret_name) { 'pdf-converter/jwt-secret' }
+
+  # Re-enable network connections for LocalStack integration tests
+  before do
+    WebMock.allow_net_connect! if defined?(WebMock)
+  end
 
   let(:s3_client) do
     Aws::S3::Client.new(
@@ -18,6 +32,10 @@ RSpec.describe 'LocalStack Integration' do
       credentials: Aws::Credentials.new('test', 'test'),
       force_path_style: true
     )
+  end
+
+  let(:s3_presigner) do
+    Aws::S3::Presigner.new(client: s3_client)
   end
 
   let(:secrets_client) do
@@ -52,14 +70,14 @@ RSpec.describe 'LocalStack Integration' do
       )
 
       # Get presigned URLs
-      source_url = s3_client.presign_url(
+      source_url = s3_presigner.presigned_url(
         :get_object,
         bucket: bucket_name,
         key: 'input/test.pdf',
         expires_in: 3600
       )
 
-      dest_url = s3_client.presign_url(
+      dest_url = s3_presigner.presigned_url(
         :put_object,
         bucket: bucket_name,
         key: 'output/page-1.png',
