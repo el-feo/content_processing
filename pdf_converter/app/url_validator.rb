@@ -28,8 +28,12 @@ class UrlValidator
     begin
       uri = URI.parse(url)
 
-      # Allow HTTP for LocalStack testing
-      return false unless %w[https http].include?(uri.scheme)
+      # Allow HTTP only for LocalStack (localhost), otherwise require HTTPS
+      if uri.scheme == 'http'
+        return false unless localstack_hostname?(uri.host)
+      elsif uri.scheme != 'https'
+        return false
+      end
 
       # Must be S3 hostname or LocalStack
       return false unless s3_hostname?(uri.host) || localstack_hostname?(uri.host)
@@ -52,8 +56,12 @@ class UrlValidator
     begin
       uri = URI.parse(url)
 
-      # Allow HTTP for LocalStack testing
-      return false unless %w[https http].include?(uri.scheme)
+      # Allow HTTP only for LocalStack (localhost), otherwise require HTTPS
+      if uri.scheme == 'http'
+        return false unless localstack_hostname?(uri.host)
+      elsif uri.scheme != 'https'
+        return false
+      end
 
       # Must be S3 hostname or LocalStack
       return false unless s3_hostname?(uri.host) || localstack_hostname?(uri.host)

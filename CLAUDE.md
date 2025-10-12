@@ -31,6 +31,24 @@ bundle install               # Install dependencies including RSpec
 bundle exec rspec           # Run RSpec tests
 ```
 
+#### LocalStack Integration Testing
+
+For local integration testing with LocalStack (requires LocalStack to be running):
+
+```bash
+# Start LocalStack (requires Docker)
+docker run --rm -d -p 4566:4566 -p 4571:4571 localstack/localstack
+
+# Run LocalStack integration tests
+cd pdf_converter
+LOCALSTACK_ENDPOINT=http://localhost:4566 \
+AWS_ENDPOINT_URL=http://localhost:4566 \
+AWS_REGION=us-east-1 \
+bundle exec rspec spec/integration/localstack_integration_spec.rb --format documentation
+```
+
+LocalStack provides a local AWS cloud stack for testing AWS services without incurring costs or requiring AWS credentials.
+
 ### Monitoring
 
 ```bash
@@ -70,16 +88,25 @@ The Lambda function is configured with:
 Converts a PDF to images.
 
 **Request Body:**
+
 ```json
 {
-  "source": "https://s3.amazonaws.com/bucket/input.pdf",
-  "destination": "https://s3.amazonaws.com/bucket/output/",
+  "source": "https://s3.amazonaws.com/bucket/input.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+  "destination": "https://s3.amazonaws.com/bucket/output/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
   "webhook": "https://example.com/webhook",
   "unique_id": "client-123"
 }
 ```
 
+**Important:** Both `source` and `destination` URLs must be pre-signed S3 URLs. Pre-signed URLs provide:
+
+- **Enhanced security**: No AWS credentials are exposed in the Lambda function
+- **Fine-grained access control**: URLs have time-limited access and specific permissions (GET for source, PUT for destination)
+- **Client control**: Clients generate URLs with their own AWS credentials, maintaining data sovereignty
+- **Audit trail**: All S3 access is logged under the client's AWS account
+
 **Response:**
+
 ```json
 {
   "message": "PDF conversion request received",
