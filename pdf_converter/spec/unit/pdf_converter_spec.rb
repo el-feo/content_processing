@@ -3,7 +3,7 @@
 require 'spec_helper'
 require 'tempfile'
 require 'fileutils'
-require_relative '../../pdf_converter'
+require_relative '../../app/pdf_converter'
 
 RSpec.describe PdfConverter, skip: 'ruby-vips not available in local environment' do
   let(:converter) { PdfConverter.new }

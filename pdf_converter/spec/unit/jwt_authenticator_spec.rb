@@ -15,7 +15,7 @@ RSpec.describe 'JwtAuthenticator' do
   let(:malformed_token) { 'not.a.valid.jwt.token' }
 
   before do
-    require_relative '../../jwt_authenticator'
+    require_relative '../../app/jwt_authenticator'
   end
 
   describe 'initialization' do

@@ -5,8 +5,12 @@ A serverless PDF to image conversion service built with AWS SAM. This applicatio
 ## Project Structure
 
 - **pdf_converter/** - Code for the PDF conversion Lambda function and Docker configuration
+  - **app/** - Application modules (JWT authenticator, URL validator, PDF converter, etc.)
+  - **spec/** - RSpec test suite for the application
+  - **lib/** - Shared library code
+  - **Dockerfile** - Multi-stage Docker build configuration
+  - **Gemfile** - Ruby dependencies
 - **events/** - Sample invocation events for testing the function
-- **pdf_converter/spec/** - RSpec test suite for the application
 - **template.yaml** - SAM template defining AWS resources
 - **samconfig.toml** - SAM CLI deployment configuration
 
@@ -60,6 +64,7 @@ sam delete --stack-name content_processing  # Delete the deployed stack
 Converts a PDF to images.
 
 **Request Body:**
+
 ```json
 {
   "source": "https://s3.amazonaws.com/bucket/input.pdf",
@@ -70,6 +75,7 @@ Converts a PDF to images.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "PDF conversion request received",
@@ -96,10 +102,20 @@ The Lambda function uses these environment variables:
 
 ## Dependencies
 
+### Production
+
 - **jwt (~> 2.7)**: JSON Web Token implementation for authentication
 - **aws-sdk-secretsmanager (~> 1)**: AWS SDK for secure key retrieval
-- **json**: JSON parsing and generation
+- **json (~> 2.9)**: JSON parsing and generation
+- **ruby-vips (~> 2.2)**: Ruby bindings for libvips image processing library
+- **async (~> 2.6)**: Asynchronous processing for batch uploads
+
+### Testing
+
 - **rspec (~> 3.12)**: Testing framework
+- **webmock (~> 3.19)**: HTTP request stubbing for tests
+- **aws-sdk-s3 (~> 1)**: AWS S3 SDK for integration tests
+- **rubocop (~> 1.81)**: Ruby code linter and formatter
 
 ## Resources
 
