@@ -4,11 +4,11 @@ require 'json'
 require 'net/http'
 require 'uri'
 require 'fileutils'
-require_relative 'jwt_authenticator'
-require_relative 'url_validator'
-require_relative 'pdf_downloader'
-require_relative 'pdf_converter'
-require_relative 'image_uploader'
+require_relative 'app/jwt_authenticator'
+require_relative 'app/url_validator'
+require_relative 'app/pdf_downloader'
+require_relative 'app/pdf_converter'
+require_relative 'app/image_uploader'
 
 def lambda_handler(event:, context:)
   start_time = Time.now.to_f

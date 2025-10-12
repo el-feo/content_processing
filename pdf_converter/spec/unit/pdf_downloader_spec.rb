@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../pdf_downloader'
+require_relative '../../app/pdf_downloader'
 require 'webmock/rspec'
 
 RSpec.describe PdfDownloader do

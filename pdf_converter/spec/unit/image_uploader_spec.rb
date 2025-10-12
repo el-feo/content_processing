@@ -3,7 +3,7 @@
 require 'spec_helper'
 require 'webmock/rspec'
 require 'async'
-require_relative '../../image_uploader'
+require_relative '../../app/image_uploader'
 
 RSpec.describe ImageUploader do
   let(:uploader) { described_class.new }

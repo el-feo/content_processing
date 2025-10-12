@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 require 'webmock/rspec'
-require_relative '../../pdf_downloader'
+require_relative '../../app/pdf_downloader'
 
 RSpec.describe 'Error Handling and Retry Logic' do
   let(:valid_s3_url) { 'https://s3.amazonaws.com/bucket/file.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256' }

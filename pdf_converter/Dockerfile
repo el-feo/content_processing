@@ -81,10 +81,9 @@ ENV GEM_HOME=${SCRATCH_DIR}
 ENV PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
 ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/lib64:$LD_LIBRARY_PATH
 
-# Copy PDF converter file
-COPY pdf_converter.rb ./
-
-COPY app.rb Gemfile jwt_authenticator.rb pdf_downloader.rb url_validator.rb image_uploader.rb ./
+# Copy application files
+COPY app.rb Gemfile ./
+COPY app ./app
 COPY lib ./lib
 
 # Install bundler and gems

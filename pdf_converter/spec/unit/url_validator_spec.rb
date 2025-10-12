@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require_relative '../../url_validator'
+require_relative '../../app/url_validator'
 
 RSpec.describe UrlValidator do
   describe '#valid_s3_signed_url?' do
