@@ -3,7 +3,7 @@
 version = 0.1
 
 [default.global.parameters]
-stack_name = "content_processing"
+stack_name = "content-processing"
 
 [default.build.parameters]
 parallel = true
@@ -28,3 +28,12 @@ warm_containers = "EAGER"
 
 [default.local_start_lambda.parameters]
 warm_containers = "EAGER"
+
+[staging.deploy.parameters]
+stack_name = "content-processing"
+resolve_s3 = true
+s3_prefix = "content-processing"
+resolve_image_repos = true
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
