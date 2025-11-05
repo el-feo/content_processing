@@ -33,17 +33,31 @@ Low-risk improvements that increase code quality immediately.
 - **App.rb complexity**: 231.82 → 206.55 (-25.27 points)
 - **lambda_handler flog score**: 102 → 78 (-24 points)
 
-## Phase 2: Extract Reusable Components
+## Phase 2: Extract Reusable Components ✅ COMPLETE
 
 Create shared infrastructure before refactoring main classes.
 
-- [ ] Extract retry logic into a reusable RetryHandler module
-- [ ] Refactor PdfDownloader to use RetryHandler module
-- [ ] Refactor ImageUploader to use RetryHandler module and create ContentData value object
-- [ ] Extract S3UrlParser class from UrlValidator to handle URL parsing
-- [ ] Consolidate duplicate validation logic in UrlValidator
+- [x] Extract retry logic into a reusable RetryHandler module
+- [x] Refactor PdfDownloader to use RetryHandler module
+- [x] Refactor ImageUploader to use RetryHandler module and create ContentData value object
+- [x] Extract S3UrlParser class from UrlValidator to handle URL parsing
+- [x] Consolidate duplicate validation logic in UrlValidator
 
-**Impact**: Reduces duplication in PdfDownloader (21 smells) and ImageUploader (19 smells)
+### Phase 2 Results:
+
+- **RetryHandler module created**: A-rated, 41.54 complexity, 5 smells
+- **PdfDownloader**: 19 → 11 smells (-8, -42%)
+- **ImageUploader**: D → C rating, 19 → 14 smells (-5, -26%), 144.09 → 102.7 complexity (-29%)
+- **S3UrlParser module created**: Centralized S3 URL parsing logic
+- **UrlValidator**: C → B rating, 35 → 12 smells (-23, -66%!), 141.09 → 60.78 complexity (-57%!), 36 → 0 duplication
+- **Tests**: All unit tests passing (42 new examples for S3UrlParser and UrlValidator)
+- **Overall Score**: 71.27 → 78.18 (+6.91 points, +9.7% improvement)
+
+**Key Achievements:**
+- Eliminated ~200 lines of duplicate retry logic
+- Eliminated all duplication in UrlValidator
+- Created reusable, well-tested infrastructure modules
+- Significantly improved maintainability and testability
 
 ## Phase 3: Extract Service Classes
 

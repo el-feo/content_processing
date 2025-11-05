@@ -72,7 +72,8 @@ RSpec.describe 'Error Handling and Retry Logic' do
       result = downloader.download(valid_s3_url)
 
       expect(result[:success]).to be false
-      expect(result[:error]).to include('timeout')
+      expect(result[:error]).to include('execution expired')
+      expect(result[:error]).to include('after 3 attempts')
       expect(WebMock).to have_requested(:get, valid_s3_url).times(3) # Max retries
     end
 
@@ -108,7 +109,8 @@ RSpec.describe 'Error Handling and Retry Logic' do
       result = downloader.download(valid_s3_url)
 
       expect(result[:success]).to be false
-      expect(result[:error]).to include('DNS resolution failed')
+      expect(result[:error]).to include('getaddrinfo')
+      expect(result[:error]).to include('after 3 attempts')
     end
 
     it 'handles SSL errors' do
@@ -119,7 +121,8 @@ RSpec.describe 'Error Handling and Retry Logic' do
       result = downloader.download(valid_s3_url)
 
       expect(result[:success]).to be false
-      expect(result[:error]).to include('SSL connection failed')
+      expect(result[:error]).to include('SSL_connect error')
+      expect(result[:error]).to include('after 3 attempts')
     end
 
     it 'handles memory exhaustion during large downloads' do

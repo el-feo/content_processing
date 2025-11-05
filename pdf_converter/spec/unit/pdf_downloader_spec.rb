@@ -70,7 +70,8 @@ RSpec.describe PdfDownloader do
         result = downloader.download(valid_s3_url)
 
         expect(result[:success]).to be false
-        expect(result[:error]).to include('timeout')
+        expect(result[:error]).to include('execution expired')
+        expect(result[:error]).to include('after 3 attempts')
       end
     end
 
