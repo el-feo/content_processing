@@ -10,7 +10,7 @@ require_relative 'app/pdf_downloader'
 require_relative 'app/pdf_converter'
 require_relative 'app/image_uploader'
 
-def lambda_handler(event:, context:)
+def lambda_handler(event:, context: nil)
   start_time = Time.now.to_f
   # PDF to Image Converter Lambda Handler with JWT Authentication
   #
@@ -39,67 +39,79 @@ def lambda_handler(event:, context:)
   validation_error = validate_request(request_body)
   return validation_error if validation_error
 
+  # Extract frequently used values
+  unique_id = request_body['unique_id']
+  webhook_url = request_body['webhook']
+
   # Log successful authentication for monitoring
-  puts "Authentication successful for unique_id: #{request_body['unique_id']}"
+  puts "Authentication successful for unique_id: #{unique_id}"
 
   # Download PDF from S3
   pdf_downloader = PdfDownloader.new
   download_result = pdf_downloader.download(request_body['source'])
 
   unless download_result[:success]
-    puts "ERROR: PDF download failed: #{download_result[:error]}"
-    return error_response(422, "PDF download failed: #{download_result[:error]}")
+    download_error = download_result[:error]
+    puts "ERROR: PDF download failed: #{download_error}"
+    return error_response(422, "PDF download failed: #{download_error}")
   end
 
-  puts "PDF downloaded successfully, size: #{download_result[:content].bytesize} bytes"
+  pdf_content = download_result[:content]
+  puts "PDF downloaded successfully, size: #{pdf_content.bytesize} bytes"
 
   # Convert PDF to images
   pdf_converter = PdfConverter.new
-  output_dir = "/tmp/#{request_body['unique_id']}"
+  output_dir = "/tmp/#{unique_id}"
 
   conversion_result = pdf_converter.convert_to_images(
-    pdf_content: download_result[:content],
+    pdf_content: pdf_content,
     output_dir: output_dir,
-    unique_id: request_body['unique_id'],
+    unique_id: unique_id,
     dpi: ENV['CONVERSION_DPI']&.to_i || 300
   )
 
   unless conversion_result[:success]
-    puts "ERROR: PDF conversion failed: #{conversion_result[:error]}"
-    return error_response(422, "PDF conversion failed: #{conversion_result[:error]}")
+    conversion_error = conversion_result[:error]
+    puts "ERROR: PDF conversion failed: #{conversion_error}"
+    return error_response(422, "PDF conversion failed: #{conversion_error}")
   end
 
-  puts "PDF converted successfully: #{conversion_result[:images].size} pages"
+  converted_images = conversion_result[:images]
+  page_count = converted_images.size
+  puts "PDF converted successfully: #{page_count} pages"
 
   # Upload images to destination
   upload_result = upload_images_to_s3(
     destination_url: request_body['destination'],
-    images: conversion_result[:images],
-    unique_id: request_body['unique_id']
+    images: converted_images
   )
 
   unless upload_result[:success]
-    puts "ERROR: Image upload failed: #{upload_result[:error]}"
+    upload_error = upload_result[:error]
+    puts "ERROR: Image upload failed: #{upload_error}"
     # Clean up before returning error
     FileUtils.rm_rf(output_dir)
-    return error_response(422, "Image upload failed: #{upload_result[:error]}")
+    return error_response(422, "Image upload failed: #{upload_error}")
   end
 
-  puts "Images uploaded successfully: #{upload_result[:uploaded_urls].size} files"
+  uploaded_urls = upload_result[:uploaded_urls]
+  puts "Images uploaded successfully: #{uploaded_urls.size} files"
 
   # Send webhook notification if provided
-  if request_body['webhook']
+  if webhook_url
+    end_time = Time.now.to_f
     webhook_result = send_webhook_notification(
-      webhook_url: request_body['webhook'],
-      unique_id: request_body['unique_id'],
+      webhook_url: webhook_url,
+      unique_id: unique_id,
       status: 'completed',
-      images: upload_result[:uploaded_urls],
-      page_count: conversion_result[:images].size,
-      processing_time_ms: ((Time.now.to_f - start_time) * 1000).to_i
+      images: uploaded_urls,
+      page_count: page_count,
+      processing_time_ms: ((end_time - start_time) * 1000).to_i
     )
 
     if webhook_result[:error]
-      puts "WARNING: Webhook notification failed: #{webhook_result[:error]}"
+      webhook_error = webhook_result[:error]
+      puts "WARNING: Webhook notification failed: #{webhook_error}"
       # Don't fail the request if webhook fails, just log it
     end
   end
@@ -116,10 +128,10 @@ def lambda_handler(event:, context:)
     },
     body: {
       message: 'PDF conversion and upload completed',
-      images: upload_result[:uploaded_urls],
-      unique_id: request_body['unique_id'],
+      images: uploaded_urls,
+      unique_id: unique_id,
       status: 'completed',
-      pages_converted: conversion_result[:images].size,
+      pages_converted: page_count,
       metadata: conversion_result[:metadata]
     }.to_json
   }
@@ -204,20 +216,23 @@ def authenticate_request(event)
   @authenticator.authenticate(headers)
 rescue JwtAuthenticator::AuthenticationError => e
   # Handle secrets manager errors
-  puts "ERROR: Authentication service error: #{e.message}"
+  error_msg = e.message
+  puts "ERROR: Authentication service error: #{error_msg}"
   { authenticated: false, error: 'Authentication service unavailable' }
 rescue StandardError => e
   # Handle any other unexpected errors
-  puts "ERROR: Unexpected authentication error: #{e.message}"
+  error_msg = e.message
+  puts "ERROR: Unexpected authentication error: #{error_msg}"
   { authenticated: false, error: 'Authentication service error' }
 end
 
-def upload_images_to_s3(destination_url:, images:, unique_id:)
+def upload_images_to_s3(destination_url:, images:)
   uploader = ImageUploader.new
 
   # Parse the destination URL to get the base path
   uri = URI.parse(destination_url)
-  base_path = uri.path.end_with?('/') ? uri.path : "#{uri.path}/"
+  uri_path = uri.path
+  base_path = uri_path.end_with?('/') ? uri_path : "#{uri_path}/"
 
   # Generate individual URLs for each image
   image_urls = []

@@ -5,7 +5,10 @@ require 'aws-sdk-secretsmanager'
 require 'json'
 require 'logger'
 
+# JwtAuthenticator handles JWT token authentication for Lambda requests,
+# retrieving secrets from AWS Secrets Manager and validating tokens
 class JwtAuthenticator
+  # AuthenticationError is raised when secret retrieval fails
   class AuthenticationError < StandardError; end
 
   attr_reader :logger
