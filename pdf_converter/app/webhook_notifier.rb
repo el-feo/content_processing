@@ -38,8 +38,8 @@ class WebhookNotifier
     else
       { error: "Webhook returned HTTP #{response.code}: #{response.message}" }
     end
-  rescue StandardError => error
-    { error: "Webhook error: #{error.message}" }
+  rescue StandardError => e
+    { error: "Webhook error: #{e.message}" }
   end
 
   private

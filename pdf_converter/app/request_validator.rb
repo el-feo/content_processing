@@ -43,9 +43,7 @@ class RequestValidator
   def validate(body, response_builder)
     # Check for missing required fields
     missing_fields = REQUIRED_FIELDS - body.keys
-    unless missing_fields.empty?
-      return response_builder.error_response(400, 'Missing required fields')
-    end
+    return response_builder.error_response(400, 'Missing required fields') unless missing_fields.empty?
 
     # Validate unique_id format to prevent path traversal attacks
     unless body['unique_id'].match?(UNIQUE_ID_PATTERN)

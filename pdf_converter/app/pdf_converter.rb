@@ -24,60 +24,29 @@ class PdfConverter
   # @param options [Hash] Optional conversion settings
   # @return [Hash] Result with :success, :images array, :metadata, or :error
   def convert_to_images(pdf_content:, output_dir:, unique_id:, **options)
-    # Override defaults with options if provided
     conversion_dpi = options[:dpi] || @dpi
-
-    # Ensure output directory exists
     FileUtils.mkdir_p(output_dir)
 
     # Validate PDF content
     return error_result('Invalid PDF content') unless valid_pdf?(pdf_content)
 
-    # Create temporary file for PDF
     temp_pdf = create_temp_pdf(pdf_content)
 
     begin
-      # Get page count
       page_count = get_page_count_from_file(temp_pdf.path)
 
-      return error_result('PDF has no pages') if page_count.zero?
+      # Validate page count
+      validation_error = validate_page_count(page_count)
+      return validation_error if validation_error
 
-      return error_result("PDF has #{page_count} pages, exceeding maximum of #{@max_pages}") if page_count > @max_pages
+      # Convert all pages to images
+      images = convert_all_pages(temp_pdf.path, page_count, output_dir, unique_id, conversion_dpi)
 
-      # Convert pages to images
-      images = []
-      log_info("Starting conversion of #{page_count} pages at #{conversion_dpi} DPI")
-
-      (0...page_count).each do |page_index|
-        image_path = convert_page(
-          temp_pdf.path,
-          page_index,
-          output_dir,
-          unique_id,
-          conversion_dpi
-        )
-        images << image_path
-        log_info("Converted page #{page_index + 1}/#{page_count}")
-
-        # Force garbage collection every 10 pages for memory management
-        GC.start if ((page_index + 1) % 10).zero?
-      end
-
-      {
-        success: true,
-        images: images,
-        metadata: {
-          page_count: page_count,
-          dpi: conversion_dpi,
-          compression: @compression
-        }
-      }
+      success_result(images, page_count, conversion_dpi)
     rescue StandardError => e
       error_result("PDF conversion failed: #{e.message}")
     ensure
-      # Clean up temporary file
-      temp_pdf&.close
-      temp_pdf&.unlink
+      cleanup_temp_file(temp_pdf)
     end
   end
 
@@ -98,6 +67,63 @@ class PdfConverter
   end
 
   private
+
+  # Validates the page count is within acceptable limits
+  # @param page_count [Integer] Number of pages in the PDF
+  # @return [Hash, nil] Error result if invalid, nil if valid
+  def validate_page_count(page_count)
+    return error_result('PDF has no pages') if page_count.zero?
+    return error_result("PDF has #{page_count} pages, exceeding maximum of #{@max_pages}") if page_count > @max_pages
+
+    nil
+  end
+
+  # Converts all pages of a PDF to PNG images
+  # @param pdf_path [String] Path to the temporary PDF file
+  # @param page_count [Integer] Total number of pages
+  # @param output_dir [String] Directory to save images
+  # @param unique_id [String] Unique identifier for naming
+  # @param dpi [Integer] DPI for conversion
+  # @return [Array<String>] Array of image file paths
+  def convert_all_pages(pdf_path, page_count, output_dir, unique_id, dpi)
+    images = []
+    log_info("Starting conversion of #{page_count} pages at #{dpi} DPI")
+
+    (0...page_count).each do |page_index|
+      image_path = convert_page(pdf_path, page_index, output_dir, unique_id, dpi)
+      images << image_path
+      log_info("Converted page #{page_index + 1}/#{page_count}")
+
+      # Force garbage collection every 10 pages for memory management
+      GC.start if ((page_index + 1) % 10).zero?
+    end
+
+    images
+  end
+
+  # Builds a success result hash
+  # @param images [Array<String>] Array of converted image paths
+  # @param page_count [Integer] Number of pages converted
+  # @param dpi [Integer] DPI used for conversion
+  # @return [Hash] Success result with images and metadata
+  def success_result(images, page_count, dpi)
+    {
+      success: true,
+      images: images,
+      metadata: {
+        page_count: page_count,
+        dpi: dpi,
+        compression: @compression
+      }
+    }
+  end
+
+  # Cleans up a temporary PDF file
+  # @param temp_pdf [Tempfile, nil] The temporary file to clean up
+  def cleanup_temp_file(temp_pdf)
+    temp_pdf&.close
+    temp_pdf&.unlink
+  end
 
   def valid_pdf?(content)
     return false if content.nil? || content.empty?

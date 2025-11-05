@@ -138,10 +138,10 @@ def send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
     processing_time_ms: processing_time_ms
   )
 
-  if result[:error]
-    puts "WARNING: Webhook notification failed: #{result[:error]}"
-    # Don't fail the request if webhook fails, just log it
-  end
+  return unless result[:error]
+
+  puts "WARNING: Webhook notification failed: #{result[:error]}"
+  # Don't fail the request if webhook fails, just log it
 end
 
 def authenticate_request(event)
@@ -212,4 +212,3 @@ rescue StandardError => e
     error: "Upload error: #{e.message}"
   }
 end
-
