@@ -1,0 +1,82 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        ports:
+          - 4566:4566
+          - 4571:4571
+        env:
+          SERVICES: s3,secretsmanager
+          DEBUG: 1
+        options: >-
+          --health-cmd "awslocal s3 ls || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: pdf_converter
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.4'
+        bundler-cache: true
+        working-directory: pdf_converter
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libvips-dev
+
+    - name: Set up LocalStack resources
+      run: |
+        # Install AWS CLI for LocalStack setup
+        pip install awscli-local[ver1]
+
+        # Create S3 bucket
+        awslocal s3 mb s3://pdf-converter-test
+
+        # Create secret in Secrets Manager
+        awslocal secretsmanager create-secret \
+          --name pdf-converter/jwt-secret \
+          --secret-string "test-secret-key-for-localstack-testing-12345"
+
+        # Upload test PDF to S3
+        echo "Sample PDF content" > test.pdf
+        awslocal s3 cp test.pdf s3://pdf-converter-test/input/test.pdf
+
+    - name: Run unit tests
+      env:
+        AWS_REGION: us-east-1
+        JWT_SECRET_NAME: pdf-converter/jwt-secret
+      run: bundle exec rspec spec/unit/ --format progress
+
+    - name: Run integration tests with LocalStack
+      env:
+        LOCALSTACK_ENDPOINT: http://localhost:4566
+        AWS_ENDPOINT_URL: http://localhost:4566
+        AWS_REGION: us-east-1
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        JWT_SECRET_NAME: pdf-converter/jwt-secret
+      run: bundle exec rspec spec/integration/localstack_integration_spec.rb --format documentation
+
+    - name: Run RuboCop
+      run: bundle exec rubocop

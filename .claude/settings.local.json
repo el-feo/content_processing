@@ -26,7 +26,14 @@
       "Bash(AWS_REGION=us-east-1 bundle exec rspec spec/integration/ --format progress)",
       "Bash(AWS_REGION=us-east-1 bundle exec rspec --format progress)",
       "Bash(localstack:*)",
-      "Bash(LOCALSTACK_ENDPOINT=http://localhost:4566 AWS_ENDPOINT_URL=http://localhost:4566 AWS_REGION=us-east-1 bundle exec rspec spec/integration/localstack_integration_spec.rb --format documentation)"
+      "Bash(LOCALSTACK_ENDPOINT=http://localhost:4566 AWS_ENDPOINT_URL=http://localhost:4566 AWS_REGION=us-east-1 bundle exec rspec spec/integration/localstack_integration_spec.rb --format documentation)",
+      "Skill(rubycritic)",
+      "Bash(~/.claude/skills/rubycritic/scripts/check_quality.sh:*)",
+      "Bash(env AWS_REGION=us-east-1 bundle exec rspec:*)",
+      "Bash(/Users/jebcoleman/.claude/skills/rubycritic/scripts/check_quality.sh:*)",
+      "Bash(gem install:*)",
+      "Bash(rubycritic:*)",
+      "Bash(AWS_REGION=us-east-1 bundle exec rspec:*)"
     ],
     "deny": [],
     "ask": []

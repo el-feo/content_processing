@@ -2,6 +2,8 @@
 
 require 'aws-sdk-secretsmanager'
 
+# AwsConfig provides centralized AWS client configuration with support
+# for custom endpoints (e.g., LocalStack) and environment-based settings
 module AwsConfig
   def self.secrets_manager_client
     config = {
