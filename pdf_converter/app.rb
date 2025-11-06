@@ -13,92 +13,131 @@ require_relative 'app/response_builder'
 
 def lambda_handler(event:, context: nil)
   start_time = Time.now.to_f
-  # PDF to Image Converter Lambda Handler with JWT Authentication
-  #
-  # Expected POST body:
-  # {
-  #   "source": "signed_s3_url",
-  #   "destination": "signed_s3_url",
-  #   "webhook": "webhook_url",
-  #   "unique_id": "client_id"
-  # }
-
-  # Initialize service objects
   response_builder = ResponseBuilder.new
-  request_validator = RequestValidator.new
 
-  # Authenticate the request
+  # Authenticate and validate request
   auth_result = authenticate_request(event)
   return response_builder.authentication_error_response(auth_result[:error]) unless auth_result[:authenticated]
 
-  # Parse and validate the request
-  begin
-    request_body = request_validator.parse_request(event)
-  rescue JSON::ParserError
-    return response_builder.error_response(400, 'Invalid JSON format')
-  rescue StandardError
-    return response_builder.error_response(400, 'Invalid request')
-  end
+  request_body = parse_request_body(event, response_builder)
+  return request_body if request_body.is_a?(Hash) && request_body[:statusCode]
 
-  validation_error = request_validator.validate(request_body, response_builder)
+  validation_error = RequestValidator.new.validate(request_body, response_builder)
   return validation_error if validation_error
 
-  # Extract frequently used values
+  # Process the PDF conversion
+  process_pdf_conversion(request_body, start_time, response_builder)
+end
+
+# Parses the request body from the event.
+#
+# @param event [Hash] Lambda event
+# @param response_builder [ResponseBuilder] Response builder instance
+# @return [Hash] Parsed request body or error response
+def parse_request_body(event, response_builder)
+  RequestValidator.new.parse_request(event)
+rescue JSON::ParserError
+  response_builder.error_response(400, 'Invalid JSON format')
+rescue StandardError
+  response_builder.error_response(400, 'Invalid request')
+end
+
+# Processes the complete PDF conversion workflow.
+#
+# @param request_body [Hash] Validated request body
+# @param start_time [Float] Start time of the request
+# @param response_builder [ResponseBuilder] Response builder instance
+# @return [Hash] Lambda response
+def process_pdf_conversion(request_body, start_time, response_builder)
   unique_id = request_body['unique_id']
-  webhook_url = request_body['webhook']
+  output_dir = "/tmp/#{unique_id}"
+
   puts "Authentication successful for unique_id: #{unique_id}"
 
-  # Download PDF from S3
-  pdf_downloader = PdfDownloader.new
-  download_result = pdf_downloader.download(request_body['source'])
+  # Download PDF
+  download_result = download_pdf(request_body['source'])
+  return handle_failure(download_result, response_builder, 'PDF download', output_dir) unless download_result[:success]
 
-  unless download_result[:success]
-    puts "ERROR: PDF download failed: #{download_result[:error]}"
-    return response_builder.error_response(422, "PDF download failed: #{download_result[:error]}")
-  end
-
-  pdf_content = download_result[:content]
-  puts "PDF downloaded successfully, size: #{pdf_content.bytesize} bytes"
+  puts "PDF downloaded successfully, size: #{download_result[:content].bytesize} bytes"
 
   # Convert PDF to images
-  output_dir = "/tmp/#{unique_id}"
-  conversion_result = convert_pdf(pdf_content, output_dir, unique_id)
-
+  conversion_result = convert_pdf(download_result[:content], output_dir, unique_id)
   unless conversion_result[:success]
-    puts "ERROR: PDF conversion failed: #{conversion_result[:error]}"
-    return response_builder.error_response(422, "PDF conversion failed: #{conversion_result[:error]}")
+    return handle_failure(conversion_result, response_builder, 'PDF conversion',
+                          output_dir)
   end
 
-  converted_images = conversion_result[:images]
-  page_count = converted_images.size
+  page_count = conversion_result[:images].size
   puts "PDF converted successfully: #{page_count} pages"
 
-  # Upload images to destination
-  upload_result = upload_images_to_s3(
-    destination_url: request_body['destination'],
-    images: converted_images
-  )
+  # Upload images
+  upload_result = upload_images(request_body['destination'], conversion_result[:images])
+  return handle_failure(upload_result, response_builder, 'Image upload', output_dir) unless upload_result[:success]
 
-  unless upload_result[:success]
-    puts "ERROR: Image upload failed: #{upload_result[:error]}"
-    FileUtils.rm_rf(output_dir)
-    return response_builder.error_response(422, "Image upload failed: #{upload_result[:error]}")
-  end
+  puts "Images uploaded successfully: #{upload_result[:uploaded_urls].size} files"
 
-  uploaded_urls = upload_result[:uploaded_urls]
-  puts "Images uploaded successfully: #{uploaded_urls.size} files"
-
-  # Send webhook notification if provided
-  send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time) if webhook_url
+  # Send webhook notification
+  notify_webhook(request_body['webhook'], unique_id, upload_result[:uploaded_urls], page_count, start_time)
 
   # Clean up and return success
-  FileUtils.rm_rf(output_dir)
+  cleanup_directory(output_dir)
   response_builder.success_response(
     unique_id: unique_id,
-    uploaded_urls: uploaded_urls,
+    uploaded_urls: upload_result[:uploaded_urls],
     page_count: page_count,
     metadata: conversion_result[:metadata]
   )
+end
+
+# Downloads PDF from the source URL.
+#
+# @param source_url [String] Source URL for the PDF
+# @return [Hash] Download result with :success, :content, or :error
+def download_pdf(source_url)
+  PdfDownloader.new.download(source_url)
+end
+
+# Handles operation failures consistently.
+#
+# @param result [Hash] Operation result hash
+# @param response_builder [ResponseBuilder] Response builder instance
+# @param operation [String] Name of the operation that failed
+# @param output_dir [String] Optional directory to clean up
+# @return [Hash] Error response
+def handle_failure(result, response_builder, operation, output_dir = nil)
+  error_message = result[:error]
+  puts "ERROR: #{operation} failed: #{error_message}"
+  cleanup_directory(output_dir) if output_dir
+  response_builder.error_response(422, "#{operation} failed: #{error_message}")
+end
+
+# Cleans up temporary directory.
+#
+# @param directory [String] Directory path to remove
+def cleanup_directory(directory)
+  FileUtils.rm_rf(directory)
+end
+
+# Sends webhook notification if URL is provided.
+#
+# @param webhook_url [String, nil] Webhook URL
+# @param unique_id [String] Unique identifier
+# @param uploaded_urls [Array<String>] Uploaded image URLs
+# @param page_count [Integer] Number of pages
+# @param start_time [Float] Processing start time
+def notify_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+  return unless webhook_url
+
+  send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+end
+
+# Uploads images to S3 destination.
+#
+# @param destination_url [String] Destination URL
+# @param images [Array<String>] Image file paths
+# @return [Hash] Upload result
+def upload_images(destination_url, images)
+  upload_images_to_s3(destination_url: destination_url, images: images)
 end
 
 # Converts PDF content to images using PdfConverter.
@@ -155,46 +194,74 @@ def authenticate_request(event)
   @authenticator.authenticate(headers)
 rescue JwtAuthenticator::AuthenticationError => e
   # Handle secrets manager errors
-  error_msg = e.message
-  puts "ERROR: Authentication service error: #{error_msg}"
+  puts "ERROR: Authentication service error: #{e.message}"
   { authenticated: false, error: 'Authentication service unavailable' }
 rescue StandardError => e
   # Handle any other unexpected errors
-  error_msg = e.message
-  puts "ERROR: Unexpected authentication error: #{error_msg}"
+  puts "ERROR: Unexpected authentication error: #{e.message}"
   { authenticated: false, error: 'Authentication service error' }
 end
 
 def upload_images_to_s3(destination_url:, images:)
   uploader = ImageUploader.new
+  base_uri = parse_destination_url(destination_url)
 
-  # Parse the destination URL to get the base path
+  # Generate URLs and read image contents
+  image_urls, image_contents = prepare_images_for_upload(images, base_uri)
+
+  # Upload all images concurrently
+  upload_results = uploader.upload_batch(image_urls, image_contents, 'image/png')
+
+  # Check results
+  process_upload_results(upload_results, image_urls)
+rescue StandardError => e
+  {
+    success: false,
+    error: "Upload error: #{e.message}"
+  }
+end
+
+# Parses the destination URL and returns a base URI with proper path.
+#
+# @param destination_url [String] Destination URL
+# @return [URI] Base URI with normalized path
+def parse_destination_url(destination_url)
   uri = URI.parse(destination_url)
   uri_path = uri.path
-  base_path = uri_path.end_with?('/') ? uri_path : "#{uri_path}/"
+  uri.path = uri_path.end_with?('/') ? uri_path : "#{uri_path}/"
+  uri
+end
 
-  # Generate individual URLs for each image
+# Prepares image URLs and contents for batch upload.
+#
+# @param images [Array<String>] Image file paths
+# @param base_uri [URI] Base URI for uploads
+# @return [Array<Array>] Two arrays: URLs and contents
+def prepare_images_for_upload(images, base_uri)
   image_urls = []
   image_contents = []
 
   images.each_with_index do |image_path, index|
-    # Create URL for this specific image
-    image_uri = uri.dup
-    image_filename = "page-#{index + 1}.png"
-    image_uri.path = "#{base_path}#{image_filename}"
+    image_uri = base_uri.dup
+    image_uri.path = "#{base_uri.path}page-#{index + 1}.png"
 
     image_urls << image_uri.to_s
     image_contents << File.read(image_path, mode: 'rb')
   end
 
-  # Upload all images concurrently
-  upload_results = uploader.upload_batch(image_urls, image_contents, 'image/png')
+  [image_urls, image_contents]
+end
 
-  # Check if all uploads succeeded
-  failed_uploads = upload_results.reject { |r| r[:success] }
+# Processes upload results and returns success or failure hash.
+#
+# @param upload_results [Array<Hash>] Upload results
+# @param image_urls [Array<String>] Image URLs
+# @return [Hash] Result with :success, :uploaded_urls, :etags, or :error
+def process_upload_results(upload_results, image_urls)
+  failed_uploads = upload_results.reject { |result| result[:success] }
 
   if failed_uploads.any?
-    error_messages = failed_uploads.map { |r| r[:error] }.uniq.join(', ')
+    error_messages = failed_uploads.map { |result| result[:error] }.uniq.join(', ')
     return {
       success: false,
       error: "Failed to upload #{failed_uploads.size} images: #{error_messages}"
@@ -203,12 +270,15 @@ def upload_images_to_s3(destination_url:, images:)
 
   {
     success: true,
-    uploaded_urls: image_urls.map { |url| url.split('?').first }, # Return URLs without query params
-    etags: upload_results.map { |r| r[:etag] }
+    uploaded_urls: strip_query_params(image_urls),
+    etags: upload_results.map { |result| result[:etag] }
   }
-rescue StandardError => e
-  {
-    success: false,
-    error: "Upload error: #{e.message}"
-  }
+end
+
+# Removes query parameters from URLs.
+#
+# @param urls [Array<String>] URLs with query parameters
+# @return [Array<String>] URLs without query parameters
+def strip_query_params(urls)
+  urls.map { |url| url.split('?').first }
 end

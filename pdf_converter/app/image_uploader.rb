@@ -7,10 +7,13 @@ require 'async'
 require 'async/barrier'
 require 'async/semaphore'
 require_relative '../lib/retry_handler'
+require_relative '../lib/url_utils'
 
 # ImageUploader handles uploading images to S3 using pre-signed URLs
 # with proper error handling, retries, and concurrent upload support
 class ImageUploader
+  include UrlUtils
+
   TIMEOUT_SECONDS = 60 # Longer timeout for uploads
   THREAD_POOL_SIZE = 5
 
@@ -144,13 +147,5 @@ class ImageUploader
 
   def log_error(message)
     @logger&.error(message) || puts("ERROR: #{message}")
-  end
-
-  # Sanitizes URL for logging by removing query parameters that might contain secrets
-  def sanitize_url(url)
-    uri = URI.parse(url)
-    "#{uri.scheme}://#{uri.host}#{uri.path}[QUERY_PARAMS_HIDDEN]"
-  rescue StandardError
-    '[URL_PARSE_ERROR]'
   end
 end

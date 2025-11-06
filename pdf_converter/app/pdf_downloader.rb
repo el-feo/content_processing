@@ -4,10 +4,13 @@ require 'net/http'
 require 'uri'
 require 'timeout'
 require_relative '../lib/retry_handler'
+require_relative '../lib/url_utils'
 
 # PdfDownloader handles downloading PDF files from S3 signed URLs
 # with proper error handling and content validation
 class PdfDownloader
+  include UrlUtils
+
   TIMEOUT_SECONDS = 30
   MAX_REDIRECTS = 5
   VALID_PDF_MAGIC_NUMBERS = ['%PDF-1.', '%PDF-2.'].freeze
@@ -121,13 +124,5 @@ class PdfDownloader
 
   def log_error(message)
     @logger&.error(message) || puts("ERROR: #{message}")
-  end
-
-  # Sanitizes URL for logging by removing query parameters that might contain secrets
-  def sanitize_url(url)
-    uri = URI.parse(url)
-    "#{uri.scheme}://#{uri.host}#{uri.path}[QUERY_PARAMS_HIDDEN]"
-  rescue StandardError
-    '[URL_PARSE_ERROR]'
   end
 end
