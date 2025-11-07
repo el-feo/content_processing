@@ -34,6 +34,20 @@ class RequestValidator
     end
   end
 
+  # Parses the request body from the event with error handling.
+  # Returns either the parsed body or an error response.
+  #
+  # @param event [Hash] Lambda event
+  # @param response_builder [ResponseBuilder] Response builder instance
+  # @return [Hash] Parsed request body or error response
+  def parse_request_body(event, response_builder)
+    parse_request(event)
+  rescue JSON::ParserError
+    response_builder.error_response(400, 'Invalid JSON format')
+  rescue StandardError
+    response_builder.error_response(400, 'Invalid request')
+  end
+
   # Validates the request body against all requirements.
   # Returns nil if validation passes, or an error response hash if validation fails.
   #
