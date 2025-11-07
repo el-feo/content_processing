@@ -80,3 +80,6 @@ jobs:
 
     - name: Run RuboCop
       run: bundle exec rubocop
+
+    - name: Run RubyCritic
+      run: bundle exec rubycritic --no-browser

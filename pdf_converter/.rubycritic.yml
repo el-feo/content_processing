@@ -1,0 +1,16 @@
+# RubyCritic Configuration
+# Exclude test files and spec files from code quality analysis
+
+paths:
+  - "."
+
+exclude_paths:
+  - "spec/**/*"
+  - "test/**/*"
+  - "vendor/**/*"
+
+minimum_score: 90.0
+
+formats:
+  - console
+  - html

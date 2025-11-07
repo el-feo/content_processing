@@ -26,4 +26,7 @@ gem 'ruby-vips', '~> 2.2'
 # Async processing for batch uploads
 gem 'async', '~> 2.6'
 
-gem 'rubocop', '~> 1.81'
+group :development do
+  gem 'rubocop', '~> 1.81'
+  gem 'rubycritic', '~> 4.9', require: false
+end
