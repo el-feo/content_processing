@@ -15,4 +15,12 @@ module UrlUtils
   rescue StandardError
     '[URL_PARSE_ERROR]'
   end
+
+  # Removes query parameters from URLs.
+  #
+  # @param urls [Array<String>] URLs with query parameters
+  # @return [Array<String>] URLs without query parameters
+  def self.strip_query_params(urls)
+    urls.map { |url| url.split('?').first }
+  end
 end

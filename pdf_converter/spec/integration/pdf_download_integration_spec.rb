@@ -56,11 +56,11 @@ RSpec.describe 'PDF Download Integration' do
     # Mock image uploader
     mock_uploader = instance_double(ImageUploader)
     allow(ImageUploader).to receive(:new).and_return(mock_uploader)
-    allow(mock_uploader).to receive(:upload_batch).and_return([{
-                                                                success: true,
-                                                                etag: '"abc123"',
-                                                                index: 0
-                                                              }])
+    allow(mock_uploader).to receive(:upload_images_from_files).and_return({
+                                                                            success: true,
+                                                                            uploaded_urls: ['https://s3.amazonaws.com/output-bucket/page-1.png'],
+                                                                            etags: ['"abc123"']
+                                                                          })
 
     # Mock S3 upload requests
     stub_request(:put, /s3\.amazonaws\.com.*page-1\.png/)

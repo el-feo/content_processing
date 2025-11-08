@@ -1,5 +1,7 @@
 # PDF Converter Service
 
+## 🚧 Under Construction
+
 A serverless PDF to image conversion service built with AWS SAM. This application provides secure, asynchronous PDF processing with JWT authentication and webhook notifications using containerized Ruby Lambda functions.
 
 ## Project Structure
