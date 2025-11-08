@@ -52,13 +52,13 @@ RSpec.describe WebhookNotifier do
       it 'sends correct JSON payload' do
         notifier.notify(**params)
 
-        expect(WebMock).to have_requested(:post, webhook_url).with do |req|
+        expect(WebMock).to(have_requested(:post, webhook_url).with do |req|
           body = JSON.parse(req.body)
           body['unique_id'] == 'test-123' &&
             body['status'] == 'completed' &&
             body['page_count'] == 1 &&
             body['processing_time_ms'] == 1500
-        end
+        end)
       end
 
       it 'sends Content-Type header' do
@@ -71,10 +71,10 @@ RSpec.describe WebhookNotifier do
       it 'includes images array in payload' do
         notifier.notify(**params)
 
-        expect(WebMock).to have_requested(:post, webhook_url).with do |req|
+        expect(WebMock).to(have_requested(:post, webhook_url).with do |req|
           body = JSON.parse(req.body)
           body['images'] == ['https://s3.amazonaws.com/bucket/page-1.png']
-        end
+        end)
       end
 
       it 'outputs success message' do
@@ -275,10 +275,10 @@ RSpec.describe WebhookNotifier do
       it 'includes all images in payload' do
         notifier.notify(**params)
 
-        expect(WebMock).to have_requested(:post, webhook_url).with do |req|
+        expect(WebMock).to(have_requested(:post, webhook_url).with do |req|
           body = JSON.parse(req.body)
           body['images'].size == 3 && body['page_count'] == 3
-        end
+        end)
       end
     end
 
@@ -295,10 +295,10 @@ RSpec.describe WebhookNotifier do
       it 'sends empty images array' do
         notifier.notify(**params)
 
-        expect(WebMock).to have_requested(:post, webhook_url).with do |req|
+        expect(WebMock).to(have_requested(:post, webhook_url).with do |req|
           body = JSON.parse(req.body)
           body['images'] == [] && body['page_count'] == 0
-        end
+        end)
       end
     end
 
@@ -315,10 +315,10 @@ RSpec.describe WebhookNotifier do
       it 'includes processing time in payload' do
         notifier.notify(**params)
 
-        expect(WebMock).to have_requested(:post, webhook_url).with do |req|
+        expect(WebMock).to(have_requested(:post, webhook_url).with do |req|
           body = JSON.parse(req.body)
           body['processing_time_ms'] == 60_000
-        end
+        end)
       end
     end
 
@@ -335,10 +335,10 @@ RSpec.describe WebhookNotifier do
       it 'properly encodes unique_id in JSON' do
         notifier.notify(**params)
 
-        expect(WebMock).to have_requested(:post, webhook_url).with do |req|
+        expect(WebMock).to(have_requested(:post, webhook_url).with do |req|
           body = JSON.parse(req.body)
           body['unique_id'] == 'test-id_123'
-        end
+        end)
       end
     end
 
@@ -351,10 +351,10 @@ RSpec.describe WebhookNotifier do
       it 'includes all required fields' do
         notifier.notify(**params)
 
-        expect(WebMock).to have_requested(:post, webhook_url).with do |req|
+        expect(WebMock).to(have_requested(:post, webhook_url).with do |req|
           body = JSON.parse(req.body)
           body.keys.sort == %w[images page_count processing_time_ms status unique_id].sort
-        end
+        end)
       end
     end
   end
