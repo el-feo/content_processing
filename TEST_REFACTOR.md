@@ -172,35 +172,61 @@ spec/
 
 ---
 
-### Phase 2: Create New Directory Structure ⏳ NOT STARTED
+### Phase 2: Create New Directory Structure ✅ COMPLETE
 
 **Objective:** Set up directory structure that mirrors application code
 
 **Tasks:**
 
-- [ ] Create `spec/app/` directory
-- [ ] Create `spec/lib/` directory
-- [ ] Create `spec/support/` directory
-- [ ] Verify structure matches application layout
+- [x] Create `spec/app/` directory
+- [x] Create `spec/lib/` directory
+- [x] Create `spec/support/` directory (already existed)
+- [x] Verify structure matches application layout
+
+**Results:**
+
+- Created `spec/app/` to mirror `app/` directory
+- Created `spec/lib/` to mirror `lib/` directory
+- `spec/support/` already existed with some helper files
+- Directory structure now ready for new test files
 
 ---
 
-### Phase 3: Create Test Support Files ⏳ NOT STARTED
+### Phase 3: Create Test Support Files ✅ COMPLETE
 
 **Objective:** Extract common test helpers for reusability
 
 **Tasks:**
 
-- [ ] Create `spec/support/jwt_helper.rb` with JWT test utilities
-- [ ] Create `spec/support/s3_stub_helper.rb` with S3 stubbing helpers
-- [ ] Update `spec_helper.rb` to load support files
-- [ ] Test that support files are properly loaded
+- [x] Create `spec/support/jwt_helper.rb` with JWT test utilities
+- [x] Create `spec/support/s3_stub_helper.rb` with S3 stubbing helpers
+- [x] Update `spec_helper.rb` to load support files automatically
+- [x] Test that support files are properly loaded
 
-**Test Utilities to Extract:**
+**Test Utilities Created:**
 
-- JWT token generation (valid, expired, invalid signature)
-- S3 request stubbing patterns
-- Common mock setup for AWS services
+**JWT Helper:**
+- `generate_valid_token` - Create valid JWT for testing
+- `generate_expired_token` - Create expired JWT for testing
+- `generate_invalid_signature_token` - Create JWT with wrong signature
+- `mock_secrets_manager` - Mock AWS Secrets Manager responses
+- `mock_secrets_manager_error` - Mock Secrets Manager errors
+
+**S3 Stub Helper:**
+- `minimal_pdf_content` - Generate valid minimal PDF for tests
+- `stub_s3_get_success` - Stub successful S3 GET requests
+- `stub_s3_put_success` - Stub successful S3 PUT requests
+- `stub_s3_error` - Stub S3 error responses
+- `stub_s3_timeout` - Stub S3 timeout errors
+- `stub_s3_sequential` - Stub multiple sequential responses
+- `stub_s3_pattern` - Stub pattern-matching URLs
+- `s3_presigned_url` - Generate valid test S3 URLs
+
+**Results:**
+
+- Support files automatically loaded via `spec_helper.rb`
+- DRY principle applied - no duplication of setup code
+- All helpers are RSpec modules included automatically
 
 ---
 
@@ -409,10 +435,10 @@ end
 ### Summary
 
 - **Phase 0**: ✅ Complete (Coverage and quality tools setup)
-- **Phase 1**: ⏳ Not Started (Cleanup)
-- **Phase 2**: ⏳ Not Started (Directory structure)
-- **Phase 3**: ⏳ Not Started (Support files)
-- **Phase 4**: ⏳ Not Started (App tests)
+- **Phase 1**: ✅ Complete (Cleanup - 13 files deleted)
+- **Phase 2**: ✅ Complete (Directory structure created)
+- **Phase 3**: ✅ Complete (Support files with test helpers)
+- **Phase 4**: ⏳ Not Started (App tests - largest phase)
 - **Phase 5**: ⏳ Not Started (Lib tests)
 - **Phase 6**: ⏳ Not Started (Integration tests)
 - **Phase 7**: ⏳ Not Started (Test configuration)

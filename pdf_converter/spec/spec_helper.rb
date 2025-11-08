@@ -22,6 +22,9 @@ require 'json'
 ENV['AWS_REGION'] ||= 'us-east-1'
 ENV['JWT_SECRET_NAME'] ||= 'pdf-converter/jwt-secret'
 
+# Load all support files
+Dir[File.join(__dir__, 'support', '**', '*.rb')].sort.each { |f| require f }
+
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
