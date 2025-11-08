@@ -1,5 +1,20 @@
 # frozen_string_literal: true
 
+# SimpleCov must be loaded before application code
+require 'simplecov'
+SimpleCov.start do
+  add_filter '/spec/'
+  add_filter '/vendor/'
+
+  # Require 100% coverage for all files
+  minimum_coverage 100
+  minimum_coverage_by_file 100
+
+  # Track branch coverage (conditionals, case statements, etc.)
+  enable_coverage :branch
+  minimum_coverage branch: 100
+end
+
 require 'rspec'
 require 'json'
 
