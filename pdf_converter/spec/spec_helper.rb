@@ -6,15 +6,19 @@ SimpleCov.start do
   add_filter '/spec/'
   add_filter '/vendor/'
 
-  # Require high coverage while allowing for defensive/unreachable code
-  # Line coverage: 99% (allows for minimal defensive code paths)
-  minimum_coverage 99
-  minimum_coverage_by_file 95
+  # Only enforce coverage minimums for unit tests, not integration tests
+  # Integration tests are end-to-end smoke tests and don't provide full coverage
+  unless ENV['SKIP_COVERAGE_MINIMUMS'] == 'true'
+    # Require high coverage while allowing for defensive/unreachable code
+    # Line coverage: 99% (allows for minimal defensive code paths)
+    minimum_coverage 99
+    minimum_coverage_by_file 95
 
-  # Track branch coverage (conditionals, case statements, etc.)
-  # Branch coverage: 90% (accounts for defensive error paths and safety nets)
-  enable_coverage :branch
-  minimum_coverage branch: 90
+    # Track branch coverage (conditionals, case statements, etc.)
+    # Branch coverage: 90% (accounts for defensive error paths and safety nets)
+    enable_coverage :branch
+    minimum_coverage branch: 90
+  end
 end
 
 require 'rspec'
