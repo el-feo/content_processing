@@ -66,7 +66,7 @@ jobs:
       env:
         AWS_REGION: us-east-1
         JWT_SECRET_NAME: pdf-converter/jwt-secret
-      run: bundle exec rspec spec/unit/ --format progress
+      run: bundle exec rspec spec/app/ spec/lib/ spec/app_spec.rb --format progress
 
     - name: Run integration tests with LocalStack
       env:
