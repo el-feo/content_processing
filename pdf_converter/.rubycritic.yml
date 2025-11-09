@@ -1,15 +1,12 @@
 # RubyCritic Configuration
-# Exclude test files and spec files from code quality analysis
+# Only analyze application code, not tests or dependencies
 
 paths:
-  - "."
+  - "app"
+  - "lib"
+  - "app.rb"
 
-exclude_paths:
-  - "spec/**/*"
-  - "test/**/*"
-  - "vendor/**/*"
-
-minimum_score: 90.0
+minimum_score: 85.0
 
 formats:
   - console

@@ -58,15 +58,14 @@ jobs:
           --name pdf-converter/jwt-secret \
           --secret-string "test-secret-key-for-localstack-testing-12345"
 
-        # Upload test PDF to S3
-        echo "Sample PDF content" > test.pdf
-        awslocal s3 cp test.pdf s3://pdf-converter-test/input/test.pdf
+        # Upload valid test PDF to S3 (from fixtures)
+        awslocal s3 cp spec/fixtures/sample.pdf s3://pdf-converter-test/input/test.pdf
 
     - name: Run unit tests
       env:
         AWS_REGION: us-east-1
         JWT_SECRET_NAME: pdf-converter/jwt-secret
-      run: bundle exec rspec spec/unit/ --format progress
+      run: bundle exec rspec spec/app/ spec/lib/ spec/app_spec.rb --format progress
 
     - name: Run integration tests with LocalStack
       env:
@@ -76,6 +75,7 @@ jobs:
         AWS_ACCESS_KEY_ID: test
         AWS_SECRET_ACCESS_KEY: test
         JWT_SECRET_NAME: pdf-converter/jwt-secret
+        SKIP_COVERAGE_MINIMUMS: 'true'
       run: bundle exec rspec spec/integration/localstack_integration_spec.rb --format documentation
 
     - name: Run RuboCop

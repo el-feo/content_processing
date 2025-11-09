@@ -36,7 +36,8 @@ class WebhookNotifier
       puts "Webhook notification sent successfully to #{webhook_url}"
       { success: true }
     else
-      { error: "Webhook returned HTTP #{response.code}: #{response.message}" }
+      error_msg = "Webhook returned HTTP #{response.code}: #{response.body}"
+      { error: error_msg }
     end
   rescue StandardError => e
     { error: "Webhook error: #{e.message}" }

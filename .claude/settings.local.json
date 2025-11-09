@@ -33,7 +33,17 @@
       "Bash(/Users/jebcoleman/.claude/skills/rubycritic/scripts/check_quality.sh:*)",
       "Bash(gem install:*)",
       "Bash(rubycritic:*)",
-      "Bash(AWS_REGION=us-east-1 bundle exec rspec:*)"
+      "Bash(AWS_REGION=us-east-1 bundle exec rspec:*)",
+      "Bash(open:*)",
+      "Bash(cat:*)",
+      "Bash(if [ -f coverage/index.html ])",
+      "Bash(then grep -A 5 app.rb coverage/index.html)",
+      "Bash(else echo \"Coverage report not found\")",
+      "Bash(fi)",
+      "Bash(vips pdfload:*)",
+      "Bash(convert:*)",
+      "Bash(SKIP_COVERAGE_MINIMUMS=true AWS_REGION=us-east-1 bundle exec rspec:*)",
+      "Bash(env SKIP_COVERAGE_MINIMUMS=true AWS_REGION=us-east-1 bundle exec rspec:*)"
     ],
     "deny": [],
     "ask": []
