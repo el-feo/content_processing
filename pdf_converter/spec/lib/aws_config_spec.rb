@@ -4,6 +4,17 @@ require 'spec_helper'
 require_relative '../../lib/aws_config'
 
 RSpec.describe AwsConfig do
+  # Set dummy AWS credentials to prevent SDK from trying to fetch from instance metadata
+  before(:all) do
+    ENV['AWS_ACCESS_KEY_ID'] = 'test-access-key-id'
+    ENV['AWS_SECRET_ACCESS_KEY'] = 'test-secret-access-key'
+  end
+
+  after(:all) do
+    ENV.delete('AWS_ACCESS_KEY_ID')
+    ENV.delete('AWS_SECRET_ACCESS_KEY')
+  end
+
   describe '.secrets_manager_client' do
     context 'with default configuration' do
       before do
