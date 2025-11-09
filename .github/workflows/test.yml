@@ -58,9 +58,8 @@ jobs:
           --name pdf-converter/jwt-secret \
           --secret-string "test-secret-key-for-localstack-testing-12345"
 
-        # Upload test PDF to S3
-        echo "Sample PDF content" > test.pdf
-        awslocal s3 cp test.pdf s3://pdf-converter-test/input/test.pdf
+        # Upload valid test PDF to S3 (from fixtures)
+        awslocal s3 cp spec/fixtures/sample.pdf s3://pdf-converter-test/input/test.pdf
 
     - name: Run unit tests
       env:
