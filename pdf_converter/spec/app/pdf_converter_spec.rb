@@ -15,9 +15,11 @@ rescue LoadError
         new
       end
 
+      # rubocop:disable Naming/PredicateMethod
       def pngsave(_path, **_options)
         true
       end
+      # rubocop:enable Naming/PredicateMethod
 
       def height
         3508
@@ -35,7 +37,7 @@ RSpec.describe PdfConverter do
   let(:unique_id) { 'test-123' }
 
   after do
-    FileUtils.rm_rf(output_dir) if File.exist?(output_dir)
+    FileUtils.rm_rf(output_dir)
   end
 
   describe 'attr_readers' do
@@ -551,7 +553,7 @@ RSpec.describe PdfConverter do
     end
 
     after do
-      temp_pdf.close! if temp_pdf
+      temp_pdf&.close!
     end
 
     before do
@@ -588,7 +590,7 @@ RSpec.describe PdfConverter do
     end
 
     after do
-      temp_pdf.close! if temp_pdf
+      temp_pdf&.close!
     end
 
     before do

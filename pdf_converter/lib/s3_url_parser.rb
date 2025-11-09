@@ -60,7 +60,7 @@ class S3UrlParser
     elsif virtual_hosted_style_s3?(uri.host)
       extract_virtual_hosted_info(uri)
     end
-  rescue URI::InvalidURIError, StandardError
+  rescue StandardError
     nil
   end
 
