@@ -55,8 +55,8 @@ class RequestValidator
   # @param response_builder [ResponseBuilder] The response builder to use for error responses
   # @return [Hash, nil] Error response hash if validation fails, nil if valid
   def validate(body, response_builder)
-    # Check for missing required fields
-    missing_fields = REQUIRED_FIELDS - body.keys
+    # Check for missing required fields (including nil values)
+    missing_fields = REQUIRED_FIELDS.select { |field| body[field].nil? }
     return response_builder.error_response(400, 'Missing required fields') unless missing_fields.empty?
 
     # Validate unique_id format to prevent path traversal attacks

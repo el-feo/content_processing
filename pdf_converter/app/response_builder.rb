@@ -31,7 +31,7 @@ class ResponseBuilder
   # @return [Hash] Lambda response hash with statusCode, headers, and body
   def authentication_error_response(error_message)
     # Determine appropriate status code based on error type
-    status_code = if error_message.include?('service')
+    status_code = if error_message.downcase.include?('service')
                     500  # Server errors (Secrets Manager issues)
                   else
                     401  # Authentication failures
