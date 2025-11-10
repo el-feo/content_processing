@@ -157,6 +157,27 @@ curl -X POST https://your-api-endpoint.amazonaws.com/Prod/convert \
 
 For instructions on generating pre-signed S3 URLs, see the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html).
 
+### Testing Scripts
+
+To simplify testing, this repository includes utility scripts in the `scripts/` directory:
+
+**Generate JWT Token:**
+```bash
+gem install jwt aws-sdk-secretsmanager
+./scripts/generate_jwt_token.rb
+```
+
+**Generate Pre-signed S3 URLs:**
+```bash
+gem install aws-sdk-s3
+./scripts/generate_presigned_urls.rb \
+  --bucket my-bucket \
+  --source-key pdfs/test.pdf \
+  --dest-prefix output/
+```
+
+See [scripts/README.md](scripts/README.md) for detailed usage instructions and examples.
+
 ## Prerequisites (Local Development)
 
 - [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
