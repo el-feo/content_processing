@@ -2,7 +2,7 @@
 
 ## 🚧 Under Construction
 
-A serverless PDF to image conversion service built with AWS SAM. This application provides secure, asynchronous PDF processing with JWT authentication and webhook notifications using containerized Ruby Lambda functions.
+A serverless PDF to image conversion service built with AWS SAM. This application provides secure, synchronous PDF processing with JWT authentication and optional webhook notifications using containerized Ruby Lambda functions.
 
 ## Project Structure
 
@@ -105,11 +105,23 @@ Converts a PDF to images.
 
 ```json
 {
-  "message": "PDF conversion request received",
+  "message": "PDF conversion and upload completed",
+  "images": [
+    "https://s3.amazonaws.com/bucket/output/client-123-0.png?...",
+    "https://s3.amazonaws.com/bucket/output/client-123-1.png?..."
+  ],
   "unique_id": "client-123",
-  "status": "accepted"
+  "status": "completed",
+  "pages_converted": 2,
+  "metadata": {
+    "pdf_page_count": 2,
+    "conversion_dpi": 300,
+    "image_format": "png"
+  }
 }
 ```
+
+**Note:** The service processes PDFs synchronously and returns the converted images in the response. If a webhook URL is provided, a notification is also sent asynchronously (fire-and-forget) upon completion.
 
 ## Architecture
 
@@ -124,8 +136,12 @@ The application follows AWS SAM patterns with containerized Ruby Lambda function
 
 The Lambda function uses these environment variables:
 
-- `AWS_REGION`: AWS region for Secrets Manager (defaults to us-east-1)
 - `JWT_SECRET_NAME`: Name of the secret in AWS Secrets Manager (defaults to pdf-converter/jwt-secret)
+- `CONVERSION_DPI`: DPI resolution for PDF to image conversion (default: 300)
+- `PNG_COMPRESSION`: PNG compression level 0-9 (default: 6)
+- `MAX_PAGES`: Maximum number of pages allowed per PDF (default: 500)
+- `VIPS_WARNING`: Controls libvips warning output (default: 0)
+- `AWS_REGION`: AWS region for Secrets Manager (set by Lambda runtime, typically us-east-1)
 
 ## Dependencies
 
@@ -142,7 +158,12 @@ The Lambda function uses these environment variables:
 - **rspec (~> 3.12)**: Testing framework
 - **webmock (~> 3.19)**: HTTP request stubbing for tests
 - **aws-sdk-s3 (~> 1)**: AWS S3 SDK for integration tests
+- **simplecov (~> 0.22)**: Code coverage analysis
+
+### Development
+
 - **rubocop (~> 1.81)**: Ruby code linter and formatter
+- **rubycritic (~> 4.9)**: Code quality analysis tool
 
 ## Resources
 

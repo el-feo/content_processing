@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PDF Converter Service - A serverless PDF to image conversion service built with AWS SAM. This application provides secure, asynchronous PDF processing with JWT authentication and webhook notifications. It uses containerized Ruby Lambda functions for scalable document processing.
+PDF Converter Service - A serverless PDF to image conversion service built with AWS SAM. This application provides secure, synchronous PDF processing with JWT authentication and optional webhook notifications. It uses containerized Ruby Lambda functions for scalable document processing.
 
 ## Development Commands
 
@@ -109,8 +109,20 @@ Converts a PDF to images.
 
 ```json
 {
-  "message": "PDF conversion request received",
+  "message": "PDF conversion and upload completed",
+  "images": [
+    "https://s3.amazonaws.com/bucket/output/client-123-0.png?...",
+    "https://s3.amazonaws.com/bucket/output/client-123-1.png?..."
+  ],
   "unique_id": "client-123",
-  "status": "accepted"
+  "status": "completed",
+  "pages_converted": 2,
+  "metadata": {
+    "pdf_page_count": 2,
+    "conversion_dpi": 300,
+    "image_format": "png"
+  }
 }
 ```
+
+**Note:** The service processes PDFs synchronously and returns the converted images in the response. If a webhook URL is provided, a notification is also sent asynchronously (fire-and-forget) upon completion.
