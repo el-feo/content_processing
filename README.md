@@ -16,7 +16,148 @@ A serverless PDF to image conversion service built with AWS SAM. This applicatio
 - **template.yaml** - SAM template defining AWS resources
 - **samconfig.toml** - SAM CLI deployment configuration
 
-## Prerequisites
+## Getting Started
+
+This guide walks you through deploying the PDF Converter Service to your AWS account from scratch.
+
+### Prerequisites
+
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) installed and configured with your AWS credentials
+- [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) installed
+- [Docker](https://hub.docker.com/search/?type=edition&offering=community) installed and running
+- [Ruby 3.4](https://www.ruby-lang.org/en/documentation/installation/) (optional, for local development)
+- An AWS account with permissions to create Lambda functions, API Gateway, ECR repositories, and Secrets Manager secrets
+
+### Step 1: Configure AWS CLI
+
+If you haven't already, configure the AWS CLI with your credentials:
+
+```bash
+aws configure
+```
+
+Enter your AWS Access Key ID, Secret Access Key, default region (e.g., `us-east-1`), and output format (e.g., `json`).
+
+### Step 2: Create JWT Secret
+
+The service uses JWT authentication. Create a secret in AWS Secrets Manager to store your JWT signing key:
+
+```bash
+# Generate a secure random secret (256-bit recommended)
+SECRET_VALUE=$(openssl rand -base64 32)
+
+# Create the secret in AWS Secrets Manager
+aws secretsmanager create-secret \
+  --name pdf-converter/jwt-secret \
+  --secret-string "$SECRET_VALUE" \
+  --region us-east-1
+
+# Save the secret value for later use in generating tokens
+echo "Your JWT secret: $SECRET_VALUE"
+```
+
+**Important:** Save the secret value securely - you'll need it to generate JWT tokens for API authentication.
+
+### Step 3: Clone and Deploy
+
+Clone the repository and deploy using SAM:
+
+```bash
+# Clone the repository
+git clone https://github.com/your-username/content_processing.git
+cd content_processing
+
+# Build the application
+sam build
+
+# Deploy (first time - this will prompt for configuration)
+sam deploy --guided
+```
+
+During `sam deploy --guided`, you'll be prompted for:
+- **Stack Name**: Press Enter to use default `content-processing`
+- **AWS Region**: Enter your preferred region (e.g., `us-east-1`)
+- **Confirm changes before deploy**: `Y` (recommended)
+- **Allow SAM CLI IAM role creation**: `Y` (required)
+- **Disable rollback**: `N` (recommended)
+- **Save arguments to configuration file**: `Y` (saves settings for future deploys)
+
+The deployment will:
+1. Create an ECR repository for the Docker image
+2. Build and push the container image
+3. Create the Lambda function
+4. Set up API Gateway with a `/convert` endpoint
+5. Configure IAM roles and permissions
+
+### Step 4: Get Your API Endpoint
+
+After successful deployment, note the API endpoint URL from the outputs:
+
+```
+Outputs
+-------------------------------------------------------------------
+PdfConverterApi = https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/Prod/convert/
+```
+
+### Step 5: Generate JWT Tokens
+
+To call the API, you need a valid JWT token. Here's how to generate one using Ruby:
+
+```ruby
+require 'jwt'
+
+# Use the secret you created in Step 2
+secret = 'your-secret-from-step-2'
+
+# Generate a token that expires in 1 hour
+payload = {
+  sub: 'user-identifier',
+  exp: Time.now.to_i + 3600
+}
+
+token = JWT.encode(payload, secret, 'HS256')
+puts "Authorization: Bearer #{token}"
+```
+
+Or using Python:
+
+```python
+import jwt
+import time
+
+# Use the secret you created in Step 2
+secret = 'your-secret-from-step-2'
+
+# Generate a token that expires in 1 hour
+payload = {
+    'sub': 'user-identifier',
+    'exp': int(time.time()) + 3600
+}
+
+token = jwt.encode(payload, secret, algorithm='HS256')
+print(f"Authorization: Bearer {token}")
+```
+
+### Step 6: Test Your Deployment
+
+Create pre-signed S3 URLs for source (PDF) and destination (images), then call the API:
+
+```bash
+# Example using curl (replace with your actual URLs and token)
+curl -X POST https://your-api-endpoint.amazonaws.com/Prod/convert \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source": "https://s3.amazonaws.com/your-bucket/input.pdf?X-Amz-...",
+    "destination": "https://s3.amazonaws.com/your-bucket/output/?X-Amz-...",
+    "webhook": "https://your-webhook-endpoint.com/notify",
+    "unique_id": "test-123"
+  }'
+```
+
+For instructions on generating pre-signed S3 URLs, see the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html).
+
+## Prerequisites (Local Development)
 
 - [SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
 - [Docker](https://hub.docker.com/search/?type=edition&offering=community)
