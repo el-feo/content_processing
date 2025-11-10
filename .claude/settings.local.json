@@ -43,7 +43,9 @@
       "Bash(vips pdfload:*)",
       "Bash(convert:*)",
       "Bash(SKIP_COVERAGE_MINIMUMS=true AWS_REGION=us-east-1 bundle exec rspec:*)",
-      "Bash(env SKIP_COVERAGE_MINIMUMS=true AWS_REGION=us-east-1 bundle exec rspec:*)"
+      "Bash(env SKIP_COVERAGE_MINIMUMS=true AWS_REGION=us-east-1 bundle exec rspec:*)",
+      "Skill(simplecov)",
+      "Bash(then grep -A 5 \"covered_percent\\|app.rb\\|request_validator\\|response_builder\\|s3_url_parser\\|url_validator\\|webhook_notifier\" coverage/index.html)"
     ],
     "deny": [],
     "ask": []
