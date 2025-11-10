@@ -16,7 +16,7 @@ class S3UrlParser
   # @param hostname [String] The hostname to check
   # @return [Boolean] true if hostname matches S3 patterns
   def self.s3_hostname?(hostname)
-    return false if hostname.nil?
+    return false unless hostname
 
     S3_HOSTNAME_PATTERNS.any? { |pattern| hostname.match?(pattern) }
   end
@@ -25,7 +25,7 @@ class S3UrlParser
   # @param hostname [String] The hostname to check
   # @return [Boolean] true if hostname is LocalStack
   def self.localstack_hostname?(hostname)
-    return false if hostname.nil?
+    return false unless hostname
 
     # Allow localhost and 127.0.0.1 for LocalStack testing
     hostname == 'localhost' || hostname == '127.0.0.1' || hostname.start_with?('localstack')
@@ -42,7 +42,7 @@ class S3UrlParser
   # @param hostname [String] The hostname to check
   # @return [Boolean] true if virtual-hosted-style S3
   def self.virtual_hosted_style_s3?(hostname)
-    return false if hostname.nil?
+    return false unless hostname
 
     hostname.match?(/\.s3\./)
   end
@@ -51,18 +51,25 @@ class S3UrlParser
   # @param url [String] The S3 URL to parse
   # @return [Hash, nil] Hash with :bucket, :key, :region or nil if invalid
   def self.extract_s3_info(url)
-    return nil if url.nil? || url.empty?
+    return nil unless url && !url.empty?
 
     uri = URI.parse(url)
-
-    if path_style_s3?(uri.host)
-      extract_path_style_info(uri)
-    elsif virtual_hosted_style_s3?(uri.host)
-      extract_virtual_hosted_info(uri)
-    end
+    extract_by_style(uri)
   rescue StandardError
     nil
   end
+
+  # Determines URL style and extracts info accordingly
+  # @param uri [URI] Parsed URI object
+  # @return [Hash, nil] Extracted S3 info or nil
+  def self.extract_by_style(uri)
+    host = uri.host
+    return extract_path_style_info(uri) if path_style_s3?(host)
+    return extract_virtual_hosted_info(uri) if virtual_hosted_style_s3?(host)
+
+    nil
+  end
+  private_class_method :extract_by_style
 
   # Extracts region from S3 hostname
   # @param hostname [String] The S3 hostname
@@ -74,22 +81,26 @@ class S3UrlParser
     match ? match[1] : nil
   end
 
+  # Validates path parts have required structure
+  # @param path_parts [Array] Split path components
+  # @return [Boolean] true if path parts are valid
+  def self.valid_path_parts?(path_parts)
+    path_parts.length >= 3 && !path_parts[1].empty?
+  end
+  private_class_method :valid_path_parts?
+
   # Extracts info from path-style S3 URL
   # @param uri [URI] Parsed URI object
   # @return [Hash, nil] Hash with :bucket, :key, :region or nil
   def self.extract_path_style_info(uri)
     # For path-style: https://s3.region.amazonaws.com/bucket/key
     path_parts = uri.path.split('/', 3)
-    return nil if path_parts.length < 3 || path_parts[1].empty?
-
-    bucket = path_parts[1]
-    key = path_parts[2]
-    region = extract_region_from_hostname(uri.host) || 'us-east-1'
+    return nil unless valid_path_parts?(path_parts)
 
     {
-      bucket: bucket,
-      key: key,
-      region: region
+      bucket: path_parts[1],
+      key: path_parts[2],
+      region: extract_region_from_hostname(uri.host) || 'us-east-1'
     }
   end
   private_class_method :extract_path_style_info
@@ -99,18 +110,23 @@ class S3UrlParser
   # @return [Hash, nil] Hash with :bucket, :key, :region or nil
   def self.extract_virtual_hosted_info(uri)
     # For virtual-hosted-style: https://bucket.s3.region.amazonaws.com/key
-    hostname_parts = uri.host.split('.')
+    host = uri.host
+    hostname_parts = host.split('.')
     return nil if hostname_parts.length < 4
 
-    bucket = hostname_parts[0]
-    key = uri.path.start_with?('/') ? uri.path[1..] : uri.path
-    region = extract_region_from_hostname(uri.host) || 'us-east-1'
-
     {
-      bucket: bucket,
-      key: key,
-      region: region
+      bucket: hostname_parts[0],
+      key: normalize_path(uri.path),
+      region: extract_region_from_hostname(host) || 'us-east-1'
     }
   end
+
+  # Removes leading slash from path
+  # @param path [String] The URL path
+  # @return [String] Path without leading slash
+  def self.normalize_path(path)
+    path.start_with?('/') ? path[1..] : path
+  end
+  private_class_method :normalize_path
   private_class_method :extract_virtual_hosted_info
 end
