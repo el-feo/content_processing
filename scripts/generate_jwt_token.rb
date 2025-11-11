@@ -1,9 +1,15 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'jwt'
+require 'bundler/inline'
+
+gemfile do
+  source 'https://rubygems.org'
+  gem 'jwt', '~> 2.7'
+  gem 'aws-sdk-secretsmanager', '~> 1'
+end
+
 require 'optparse'
-require 'aws-sdk-secretsmanager'
 
 # Script to generate JWT tokens for testing the PDF Converter API
 # Can retrieve secret from AWS Secrets Manager or use a provided secret

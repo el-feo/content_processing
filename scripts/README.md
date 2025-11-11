@@ -4,17 +4,15 @@ Utility scripts to help test the PDF Converter API against your deployed product
 
 ## Prerequisites
 
-Install the required gems:
+**Ruby**: The scripts require Ruby to be installed. They use `bundler/inline` to automatically install required gems on first run.
 
-```bash
-gem install aws-sdk-s3 aws-sdk-secretsmanager jwt
-```
-
-Ensure your AWS credentials are configured:
+**AWS Credentials**: Ensure your AWS credentials are configured:
 
 ```bash
 aws configure
 ```
+
+The scripts will automatically install their dependencies (JWT, AWS SDK) when first run - no manual gem installation needed!
 
 ## Scripts
 

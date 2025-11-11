@@ -1,7 +1,14 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'aws-sdk-s3'
+require 'bundler/inline'
+
+gemfile do
+  source 'https://rubygems.org'
+  gem 'aws-sdk-s3', '~> 1'
+  gem 'rexml' # Required by aws-sdk
+end
+
 require 'optparse'
 require 'json'
 

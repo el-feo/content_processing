@@ -159,17 +159,15 @@ For instructions on generating pre-signed S3 URLs, see the [AWS documentation](h
 
 ### Testing Scripts
 
-To simplify testing, this repository includes utility scripts in the `scripts/` directory:
+To simplify testing, this repository includes utility scripts in the `scripts/` directory. The scripts automatically install their dependencies on first run using `bundler/inline` - no manual gem installation needed!
 
 **Generate JWT Token:**
 ```bash
-gem install jwt aws-sdk-secretsmanager
 ./scripts/generate_jwt_token.rb
 ```
 
 **Generate Pre-signed S3 URLs:**
 ```bash
-gem install aws-sdk-s3
 ./scripts/generate_presigned_urls.rb \
   --bucket my-bucket \
   --source-key pdfs/test.pdf \
