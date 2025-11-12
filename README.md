@@ -138,40 +138,73 @@ token = jwt.encode(payload, secret, algorithm='HS256')
 print(f"Authorization: Bearer {token}")
 ```
 
-### Step 6: Test Your Deployment
+### Step 6: Set Up IAM Role for Testing
 
-Create pre-signed S3 URLs for source (PDF) and destination (images), then call the API:
+The API requires temporary AWS credentials to access your S3 buckets. Set up an IAM role:
 
 ```bash
-# Example using curl (replace with your actual URLs and token)
+./scripts/setup_iam_role.rb \
+  --source-bucket your-bucket \
+  --dest-bucket your-bucket
+```
+
+Note the role ARN from the output.
+
+### Step 7: Test Your Deployment
+
+Generate temporary credentials and call the API:
+
+```bash
+# 1. Generate JWT token
+./scripts/generate_jwt_token.rb
+
+# 2. Generate temporary AWS credentials
+./scripts/generate_sts_credentials.rb \
+  --role-arn arn:aws:iam::123456789012:role/PdfConverterClientRole
+
+# 3. Call the API (replace with your values)
 curl -X POST https://your-api-endpoint.amazonaws.com/Prod/convert \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "source": "https://s3.amazonaws.com/your-bucket/input.pdf?X-Amz-...",
-    "destination": "https://s3.amazonaws.com/your-bucket/output/?X-Amz-...",
-    "webhook": "https://your-webhook-endpoint.com/notify",
-    "unique_id": "test-123"
+    "source": {
+      "bucket": "your-bucket",
+      "key": "pdfs/test.pdf"
+    },
+    "destination": {
+      "bucket": "your-bucket",
+      "prefix": "output/"
+    },
+    "credentials": {
+      "accessKeyId": "ASIA...",
+      "secretAccessKey": "...",
+      "sessionToken": "..."
+    },
+    "unique_id": "test-123",
+    "webhook": "https://your-webhook-endpoint.com/notify"
   }'
 ```
-
-For instructions on generating pre-signed S3 URLs, see the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html).
 
 ### Testing Scripts
 
 To simplify testing, this repository includes utility scripts in the `scripts/` directory. The scripts automatically install their dependencies on first run using `bundler/inline` - no manual gem installation needed!
+
+**Setup IAM Role (one-time):**
+```bash
+./scripts/setup_iam_role.rb \
+  --source-bucket my-bucket \
+  --dest-bucket my-bucket
+```
 
 **Generate JWT Token:**
 ```bash
 ./scripts/generate_jwt_token.rb
 ```
 
-**Generate Pre-signed S3 URLs:**
+**Generate STS Credentials:**
 ```bash
-./scripts/generate_presigned_urls.rb \
-  --bucket my-bucket \
-  --source-key pdfs/test.pdf \
-  --dest-prefix output/
+./scripts/generate_sts_credentials.rb \
+  --role-arn arn:aws:iam::ACCOUNT_ID:role/PdfConverterClientRole
 ```
 
 See [scripts/README.md](scripts/README.md) for detailed usage instructions and examples.
@@ -241,24 +274,54 @@ sam delete --stack-name content_processing  # Delete the deployed stack
 
 ### POST /convert
 
-Converts a PDF to images.
+Converts a PDF to images using temporary AWS credentials.
 
 **Request Body:**
 
 ```json
 {
-  "source": "https://s3.amazonaws.com/bucket/input.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
-  "destination": "https://s3.amazonaws.com/bucket/output/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
-  "webhook": "https://example.com/webhook",
-  "unique_id": "client-123"
+  "source": {
+    "bucket": "my-bucket",
+    "key": "pdfs/document.pdf"
+  },
+  "destination": {
+    "bucket": "my-bucket",
+    "prefix": "converted/"
+  },
+  "credentials": {
+    "accessKeyId": "ASIA...",
+    "secretAccessKey": "...",
+    "sessionToken": "..."
+  },
+  "unique_id": "client-123",
+  "webhook": "https://example.com/webhook"
 }
 ```
 
-**Important:** Both `source` and `destination` URLs must be pre-signed S3 URLs. Pre-signed URLs provide:
+**Required Fields:**
 
-- **Enhanced security**: No AWS credentials are exposed in the Lambda function
-- **Fine-grained access control**: URLs have time-limited access and specific permissions (GET for source, PUT for destination)
-- **Client control**: Clients generate URLs with their own AWS credentials, maintaining data sovereignty
+- `source.bucket`: S3 bucket containing the PDF
+- `source.key`: S3 object key for the PDF (must end with `.pdf`)
+- `destination.bucket`: S3 bucket for converted images
+- `destination.prefix`: S3 prefix (folder path) for images
+- `credentials`: Temporary AWS STS credentials with:
+  - `accessKeyId`: AWS access key (must start with `ASIA` or `AKIA`)
+  - `secretAccessKey`: AWS secret access key
+  - `sessionToken`: AWS session token
+- `unique_id`: Unique identifier for this conversion (alphanumeric, underscores, and hyphens only)
+
+**Optional Fields:**
+
+- `webhook`: URL to receive completion notification
+
+**Security Model:**
+
+The service uses temporary AWS credentials (STS) for enhanced security:
+
+- **Scoped permissions**: Credentials are limited to specific S3 buckets/prefixes
+- **Time-limited access**: Credentials expire after 15 minutes
+- **No long-term credentials**: No permanent AWS keys are stored or exposed
+- **Client control**: Clients generate credentials by assuming their own IAM role
 - **Audit trail**: All S3 access is logged under the client's AWS account
 
 **Response:**
@@ -267,8 +330,8 @@ Converts a PDF to images.
 {
   "message": "PDF conversion and upload completed",
   "images": [
-    "https://s3.amazonaws.com/bucket/output/client-123-0.png?...",
-    "https://s3.amazonaws.com/bucket/output/client-123-1.png?..."
+    "https://my-bucket.s3.amazonaws.com/converted/client-123-0.png",
+    "https://my-bucket.s3.amazonaws.com/converted/client-123-1.png"
   ],
   "unique_id": "client-123",
   "status": "completed",
@@ -280,6 +343,14 @@ Converts a PDF to images.
   }
 }
 ```
+
+**Image Naming Convention:**
+
+Converted images are stored with the format: `{prefix}{unique_id}-{page_number}.png`
+
+Examples:
+- `output/test-123-0.png` (first page)
+- `output/test-123-1.png` (second page)
 
 **Note:** The service processes PDFs synchronously and returns the converted images in the response. If a webhook URL is provided, a notification is also sent asynchronously (fire-and-forget) upon completion.
 
@@ -308,16 +379,15 @@ The Lambda function uses these environment variables:
 ### Production
 
 - **jwt (~> 2.7)**: JSON Web Token implementation for authentication
+- **aws-sdk-s3 (~> 1)**: AWS S3 SDK for direct S3 access with temporary credentials
 - **aws-sdk-secretsmanager (~> 1)**: AWS SDK for secure key retrieval
 - **json (~> 2.9)**: JSON parsing and generation
 - **ruby-vips (~> 2.2)**: Ruby bindings for libvips image processing library
-- **async (~> 2.6)**: Asynchronous processing for batch uploads
 
 ### Testing
 
 - **rspec (~> 3.12)**: Testing framework
 - **webmock (~> 3.19)**: HTTP request stubbing for tests
-- **aws-sdk-s3 (~> 1)**: AWS S3 SDK for integration tests
 - **simplecov (~> 0.22)**: Code coverage analysis
 
 ### Development

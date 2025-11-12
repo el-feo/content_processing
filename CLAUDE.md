@@ -99,24 +99,37 @@ The Lambda function is configured with:
 
 ### POST /convert
 
-Converts a PDF to images.
+Converts a PDF to images using temporary AWS credentials.
 
 **Request Body:**
 
 ```json
 {
-  "source": "https://s3.amazonaws.com/bucket/input.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
-  "destination": "https://s3.amazonaws.com/bucket/output/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
-  "webhook": "https://example.com/webhook",
-  "unique_id": "client-123"
+  "source": {
+    "bucket": "my-bucket",
+    "key": "pdfs/document.pdf"
+  },
+  "destination": {
+    "bucket": "my-bucket",
+    "prefix": "converted/"
+  },
+  "credentials": {
+    "accessKeyId": "ASIA...",
+    "secretAccessKey": "...",
+    "sessionToken": "..."
+  },
+  "unique_id": "client-123",
+  "webhook": "https://example.com/webhook"
 }
 ```
 
-**Important:** Both `source` and `destination` URLs must be pre-signed S3 URLs. Pre-signed URLs provide:
+**Security Model:** The service uses temporary AWS STS credentials for S3 access:
 
-- **Enhanced security**: No AWS credentials are exposed in the Lambda function
-- **Fine-grained access control**: URLs have time-limited access and specific permissions (GET for source, PUT for destination)
-- **Client control**: Clients generate URLs with their own AWS credentials, maintaining data sovereignty
+- **Scoped permissions**: Credentials are limited to specific S3 buckets/prefixes
+- **Time-limited access**: Credentials expire after 15 minutes
+- **No long-term credentials**: No permanent AWS keys are stored or exposed
+- **Client control**: Clients generate credentials by assuming their own IAM role
+- **Preflight validation**: Service validates credentials before processing
 - **Audit trail**: All S3 access is logged under the client's AWS account
 
 **Response:**
@@ -125,8 +138,8 @@ Converts a PDF to images.
 {
   "message": "PDF conversion and upload completed",
   "images": [
-    "https://s3.amazonaws.com/bucket/output/client-123-0.png?...",
-    "https://s3.amazonaws.com/bucket/output/client-123-1.png?..."
+    "https://my-bucket.s3.amazonaws.com/converted/client-123-0.png",
+    "https://my-bucket.s3.amazonaws.com/converted/client-123-1.png"
   ],
   "unique_id": "client-123",
   "status": "completed",
