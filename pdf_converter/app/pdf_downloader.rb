@@ -1,46 +1,61 @@
 # frozen_string_literal: true
 
-require 'net/http'
-require 'uri'
-require 'timeout'
-require_relative '../lib/retry_handler'
-require_relative '../lib/url_utils'
+require 'aws-sdk-s3'
+require_relative '../lib/credential_sanitizer'
 
-# PdfDownloader handles downloading PDF files from S3 signed URLs
-# with proper error handling and content validation
+# PdfDownloader handles downloading PDF files from S3 using temporary credentials.
+# It supports both credential-based access (for clients) and IAM role-based access
+# (for Lambda's default execution role).
 class PdfDownloader
-  include UrlUtils
-
-  TIMEOUT_SECONDS = 30
-  MAX_REDIRECTS = 5
+  # Maximum PDF file size (100MB)
+  MAX_PDF_SIZE = 100 * 1024 * 1024
   VALID_PDF_MAGIC_NUMBERS = ['%PDF-1.', '%PDF-2.'].freeze
 
-  def initialize
-    @logger = Logger.new($stdout) if defined?(Logger)
+  def initialize(credentials = nil)
+    @credentials = credentials
   end
 
-  # Downloads a PDF from the given signed S3 URL with retry logic
-  # @param url [String] The signed S3 URL to download from
-  # @return [Hash] Result hash with :success, :content, :content_type, or :error
-  def download(url)
-    validate_url(url)
+  # Downloads a PDF file from S3 using the provided bucket and key.
+  # Performs a preflight check to verify access and validate the file.
+  #
+  # @param bucket [String] S3 bucket name
+  # @param key [String] S3 object key
+  # @return [Hash] Result hash with :success, :content, :metadata, or :error
+  def download_from_s3(bucket, key)
+    log_download_start(bucket, key)
 
-    log_info("Starting PDF download from: #{sanitize_url(url)}")
+    # Preflight check: verify access and file properties
+    preflight_result = preflight_check(bucket, key)
+    return preflight_result unless preflight_result[:success]
 
-    uri = URI.parse(url)
-    content, content_type = download_with_retry(uri)
+    # Download the PDF content
+    s3_client = create_s3_client
+    response = s3_client.get_object(bucket: bucket, key: key)
 
-    return error_result('Invalid PDF content: Does not contain valid PDF header') unless validate_pdf_content(content)
+    content = response.body.read
 
-    log_info("PDF download completed successfully, size: #{content.bytesize} bytes")
+    # Validate PDF content
+    unless validate_pdf_content(content)
+      return error_result('Invalid PDF content: Does not contain valid PDF header')
+    end
+
+    log_download_success(content.bytesize)
 
     {
       success: true,
       content: content,
-      content_type: content_type
+      metadata: {
+        content_type: response.content_type,
+        content_length: response.content_length,
+        etag: response.etag
+      }
     }
-  rescue URI::InvalidURIError
-    error_result('Invalid URL format')
+  rescue Aws::S3::Errors::NoSuchKey
+    error_result('Source PDF not found')
+  rescue Aws::S3::Errors::AccessDenied
+    error_result('Access denied to source PDF - check credentials permissions')
+  rescue Aws::Errors::ServiceError => e
+    error_result("S3 error: #{e.message}")
   rescue StandardError => e
     error_result("Download failed: #{e.message}")
   end
@@ -57,72 +72,74 @@ class PdfDownloader
 
   private
 
-  # Downloads content with retry logic for transient failures
-  # @param uri [URI] The URI to download from
-  # @return [Array] Array containing [content, content_type]
-  def download_with_retry(uri)
-    RetryHandler.with_retry(logger: @logger) do
-      fetch_with_redirects(uri)
+  # Performs a preflight check on the S3 object to verify:
+  # 1. Object exists and credentials have access
+  # 2. File size is within limits
+  # 3. Content type is PDF (if metadata available)
+  #
+  # @param bucket [String] S3 bucket name
+  # @param key [String] S3 object key
+  # @return [Hash] Result hash with :success or :error
+  def preflight_check(bucket, key)
+    s3_client = create_s3_client
+
+    # Use head_object to check without downloading
+    response = s3_client.head_object(bucket: bucket, key: key)
+
+    # Validate file size
+    if response.content_length > MAX_PDF_SIZE
+      return error_result("PDF file too large: #{response.content_length} bytes (max: #{MAX_PDF_SIZE})")
     end
-  rescue RetryHandler::RetryError => e
-    raise StandardError, e.message
+
+    # Validate content type if available
+    if response.content_type && !response.content_type.include?('pdf')
+      puts "WARNING: Content-Type is #{response.content_type}, expected PDF"
+    end
+
+    puts "Preflight check passed: #{response.content_length} bytes, Content-Type: #{response.content_type}"
+    { success: true }
+  rescue Aws::S3::Errors::NotFound
+    error_result('Source PDF not found')
+  rescue Aws::S3::Errors::AccessDenied
+    error_result('Access denied during preflight check - verify credentials have s3:GetObject permission')
+  rescue Aws::Errors::ServiceError => e
+    error_result("Preflight check failed: #{e.message}")
   end
 
-  def validate_url(url)
-    raise ArgumentError, 'URL cannot be nil or empty' if url.nil? || url.empty?
-
-    uri = URI.parse(url)
-    return if uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
-
-    raise URI::InvalidURIError, 'URL must be HTTP or HTTPS'
-  end
-
-  def fetch_with_redirects(uri, redirect_count = 0)
-    raise StandardError, "Too many redirects (max #{MAX_REDIRECTS})" if redirect_count >= MAX_REDIRECTS
-
-    response = perform_http_request(uri)
-
-    case response
-    when Net::HTTPSuccess
-      content_type = response['content-type'] || 'application/octet-stream'
-      [response.body, content_type]
-    when Net::HTTPRedirection
-      location = response['location']
-      raise StandardError, 'Redirect without location header' unless location
-
-      log_info("Following redirect to: #{sanitize_url(location)}")
-      new_uri = URI.parse(location)
-      fetch_with_redirects(new_uri, redirect_count + 1)
+  # Creates an S3 client using the provided credentials or default IAM role
+  #
+  # @return [Aws::S3::Client] Configured S3 client
+  def create_s3_client
+    if @credentials
+      Aws::S3::Client.new(
+        access_key_id: @credentials['accessKeyId'],
+        secret_access_key: @credentials['secretAccessKey'],
+        session_token: @credentials['sessionToken']
+      )
     else
-      raise StandardError, "HTTP #{response.code}: #{response.message}"
+      # Use Lambda's IAM role
+      Aws::S3::Client.new
     end
   end
 
-  def perform_http_request(uri)
-    Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
-      http.read_timeout = TIMEOUT_SECONDS
-      http.open_timeout = TIMEOUT_SECONDS
-
-      request = Net::HTTP::Get.new(uri)
-      request['User-Agent'] = 'PDF-Converter-Service/1.0'
-
-      http.request(request)
+  def log_download_start(bucket, key)
+    if @credentials
+      sanitized = CredentialSanitizer.sanitize(@credentials)
+      puts "Downloading PDF from s3://#{bucket}/#{key} using credentials: #{sanitized['accessKeyId']}"
+    else
+      puts "Downloading PDF from s3://#{bucket}/#{key} using Lambda IAM role"
     end
+  end
+
+  def log_download_success(size)
+    puts "PDF downloaded successfully: #{size} bytes"
   end
 
   def error_result(message)
-    log_error(message)
+    puts "ERROR: #{message}"
     {
       success: false,
       error: message
     }
-  end
-
-  def log_info(message)
-    @logger&.info(message) || puts("INFO: #{message}")
-  end
-
-  def log_error(message)
-    @logger&.error(message) || puts("ERROR: #{message}")
   end
 end

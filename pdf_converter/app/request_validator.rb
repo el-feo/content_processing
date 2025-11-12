@@ -4,15 +4,18 @@ require 'json'
 require_relative 'url_validator'
 
 # RequestValidator handles parsing and validation of incoming Lambda requests.
-# It validates required fields, unique_id format, and URL formats for source,
-# destination, and webhook URLs.
+# It validates required fields, S3 bucket/key format, credentials, and unique_id format.
 class RequestValidator
-  # List of fields that must be present in the request body
-  REQUIRED_FIELDS = %w[source destination webhook unique_id].freeze
-
   # Regex pattern for validating unique_id format
   # Only alphanumeric characters, underscores, and hyphens are allowed
   UNIQUE_ID_PATTERN = /\A[a-zA-Z0-9_-]+\z/
+
+  # S3 bucket name validation (AWS rules)
+  # 3-63 characters, lowercase, numbers, dots, hyphens
+  BUCKET_NAME_PATTERN = /\A[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]\z/
+
+  # S3 key validation - not empty and reasonable length
+  MAX_KEY_LENGTH = 1024
 
   def initialize
     @url_validator = UrlValidator.new
@@ -55,11 +58,9 @@ class RequestValidator
   # @param response_builder [ResponseBuilder] The response builder to use for error responses
   # @return [Hash, nil] Error response hash if validation fails, nil if valid
   def validate(body, response_builder)
-    # Check for missing required fields (including nil values)
-    missing_fields = REQUIRED_FIELDS.select { |field| body[field].nil? }
-    return response_builder.error_response(400, 'Missing required fields') unless missing_fields.empty?
+    # Validate unique_id first (required and format)
+    return response_builder.error_response(400, 'Missing required field: unique_id') if body['unique_id'].nil?
 
-    # Validate unique_id format to prevent path traversal attacks
     unless body['unique_id'].match?(UNIQUE_ID_PATTERN)
       return response_builder.error_response(
         400,
@@ -67,22 +68,78 @@ class RequestValidator
       )
     end
 
-    # Validate source URL is a signed S3 URL for PDF
-    unless @url_validator.valid_s3_signed_url?(body['source'])
-      return response_builder.error_response(400, 'Invalid source URL: must be a signed S3 URL for PDF file')
-    end
+    # Validate source
+    source_error = validate_source(body['source'])
+    return response_builder.error_response(400, source_error) if source_error
 
-    # Validate destination URL is a signed S3 URL
-    unless @url_validator.valid_s3_destination_url?(body['destination'])
-      return response_builder.error_response(400, 'Invalid destination URL: must be a signed S3 URL')
-    end
+    # Validate destination
+    dest_error = validate_destination(body['destination'])
+    return response_builder.error_response(400, dest_error) if dest_error
 
-    # Validate webhook URL if provided
-    if body['webhook'] && !@url_validator.valid_url?(body['webhook'])
+    # Validate credentials
+    creds_error = validate_credentials(body['credentials'])
+    return response_builder.error_response(400, creds_error) if creds_error
+
+    # Validate webhook URL if provided (optional)
+    if body['webhook'] && !body['webhook'].empty? && !@url_validator.valid_url?(body['webhook'])
       return response_builder.error_response(400, 'Invalid webhook URL format')
     end
 
     # All validations passed
+    nil
+  end
+
+  private
+
+  # Validates the source object
+  def validate_source(source)
+    return 'Missing required field: source' if source.nil?
+    return 'source must be an object' unless source.is_a?(Hash)
+
+    return 'source.bucket is required' if source['bucket'].nil? || source['bucket'].empty?
+    return 'source.key is required' if source['key'].nil? || source['key'].empty?
+
+    return 'Invalid source.bucket format' unless source['bucket'].match?(BUCKET_NAME_PATTERN)
+    return 'source.key is too long' if source['key'].length > MAX_KEY_LENGTH
+    return 'source.key must end with .pdf' unless source['key'].downcase.end_with?('.pdf')
+
+    nil
+  end
+
+  # Validates the destination object
+  def validate_destination(destination)
+    return 'Missing required field: destination' if destination.nil?
+    return 'destination must be an object' unless destination.is_a?(Hash)
+
+    return 'destination.bucket is required' if destination['bucket'].nil? || destination['bucket'].empty?
+    return 'destination.prefix is required' if destination['prefix'].nil?
+
+    return 'Invalid destination.bucket format' unless destination['bucket'].match?(BUCKET_NAME_PATTERN)
+    return 'destination.prefix is too long' if destination['prefix'].length > MAX_KEY_LENGTH
+
+    nil
+  end
+
+  # Validates the credentials object
+  def validate_credentials(credentials)
+    return 'Missing required field: credentials' if credentials.nil?
+    return 'credentials must be an object' unless credentials.is_a?(Hash)
+
+    if credentials['accessKeyId'].nil? || credentials['accessKeyId'].empty?
+      return 'credentials.accessKeyId is required'
+    end
+    if credentials['secretAccessKey'].nil? || credentials['secretAccessKey'].empty?
+      return 'credentials.secretAccessKey is required'
+    end
+    if credentials['sessionToken'].nil? || credentials['sessionToken'].empty?
+      return 'credentials.sessionToken is required'
+    end
+
+    # Basic format validation for access key ID (should start with ASIA for temp creds)
+    unless credentials['accessKeyId'].start_with?('ASIA', 'AKIA')
+      return 'Invalid credentials.accessKeyId format'
+    end
+
     nil
   end
 end
