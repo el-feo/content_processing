@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PDF Converter Service - A serverless PDF to image conversion service built with AWS SAM. This application provides secure, synchronous PDF processing with JWT authentication and optional webhook notifications. It uses containerized Ruby Lambda functions for scalable document processing.
 
+## Initial Setup
+
+For first-time deployment to AWS:
+
+1. **Configure AWS CLI**: Run `aws configure` with your credentials
+2. **Create JWT Secret**: Use AWS Secrets Manager to create `pdf-converter/jwt-secret`
+   ```bash
+   SECRET_VALUE=$(openssl rand -base64 32)
+   aws secretsmanager create-secret --name pdf-converter/jwt-secret --secret-string "$SECRET_VALUE" --region us-east-1
+   ```
+3. **Deploy**: Run `sam build && sam deploy --guided`
+
+See README.md for detailed setup instructions including JWT token generation and testing.
+
 ## Development Commands
 
 ### Build and Deploy
