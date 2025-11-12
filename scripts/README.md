@@ -53,29 +53,61 @@ Options:
 ./scripts/generate_jwt_token.rb --secret-name my-app/jwt-secret --region us-west-2
 ```
 
-### 2. Generate Pre-signed S3 URLs
+### 2. Setup IAM Role
 
-Generate pre-signed S3 URLs for source PDF and destination folder:
+Create an IAM role that clients can assume to access S3 buckets:
 
 ```bash
-./scripts/generate_presigned_urls.rb \
-  --bucket my-bucket \
-  --source-key pdfs/test.pdf \
-  --dest-prefix output/
+./scripts/setup_iam_role.rb \
+  --source-bucket my-source-bucket \
+  --dest-bucket my-dest-bucket
 ```
+
+This script creates a role named `PdfConverterClientRole` with:
+- Read permissions on source bucket(s)
+- Write permissions on destination bucket(s)
+- Trust policy requiring ExternalId `pdf-converter-client`
 
 **Required Arguments:**
 
-- `--bucket BUCKET`: S3 bucket name
-- `--source-key KEY`: S3 key for source PDF (e.g., 'pdfs/test.pdf')
-- `--dest-prefix PREFIX`: S3 prefix for destination images (e.g., 'output/')
+- `--source-bucket BUCKET`: Source S3 bucket (can specify multiple times)
+- `--dest-bucket BUCKET`: Destination S3 bucket (can specify multiple times)
+
+**Examples:**
+
+```bash
+# Create role with single source and destination bucket
+./scripts/setup_iam_role.rb \
+  --source-bucket my-pdfs \
+  --dest-bucket my-images
+
+# Create role with multiple buckets
+./scripts/setup_iam_role.rb \
+  --source-bucket bucket-1 \
+  --source-bucket bucket-2 \
+  --dest-bucket bucket-3
+```
+
+### 3. Generate STS Credentials
+
+Generate temporary AWS credentials by assuming the IAM role:
+
+```bash
+./scripts/generate_sts_credentials.rb \
+  --role-arn arn:aws:iam::123456789012:role/PdfConverterClientRole
+```
+
+The script assumes the role and returns temporary credentials (valid for 15 minutes) that can be used to call the API.
+
+**Required Arguments:**
+
+- `--role-arn ARN`: IAM role ARN to assume
 
 **Optional Arguments:**
 
 ```bash
   -r, --region REGION              AWS region (default: us-east-1)
-  -e, --expiration SECONDS         URL expiration in seconds (default: 3600)
-  -u, --unique-id ID               Unique ID for this conversion (default: test-TIMESTAMP)
+  -s, --session-name NAME          Role session name (default: pdf-converter-TIMESTAMP)
   -f, --format FORMAT              Output format: pretty, json, curl (default: pretty)
   -h, --help                       Show help message
 ```
@@ -89,46 +121,44 @@ Generate pre-signed S3 URLs for source PDF and destination folder:
 **Examples:**
 
 ```bash
-# Generate URLs with pretty output
-./scripts/generate_presigned_urls.rb \
-  --bucket my-bucket \
-  --source-key pdfs/sample.pdf \
-  --dest-prefix converted/
+# Generate credentials with pretty output
+./scripts/generate_sts_credentials.rb \
+  --role-arn arn:aws:iam::123456789012:role/PdfConverterClientRole
 
-# Generate URLs as JSON
-./scripts/generate_presigned_urls.rb \
-  --bucket my-bucket \
-  --source-key pdfs/sample.pdf \
-  --dest-prefix converted/ \
+# Generate credentials as JSON
+./scripts/generate_sts_credentials.rb \
+  --role-arn arn:aws:iam::123456789012:role/PdfConverterClientRole \
   --format json
 
-# Generate URLs with curl template
-./scripts/generate_presigned_urls.rb \
-  --bucket my-bucket \
-  --source-key pdfs/sample.pdf \
-  --dest-prefix converted/ \
+# Generate curl command template
+./scripts/generate_sts_credentials.rb \
+  --role-arn arn:aws:iam::123456789012:role/PdfConverterClientRole \
   --format curl
-
-# Custom expiration and unique ID
-./scripts/generate_presigned_urls.rb \
-  --bucket my-bucket \
-  --source-key pdfs/sample.pdf \
-  --dest-prefix converted/ \
-  --expiration 7200 \
-  --unique-id my-test-123
 ```
 
 ## Complete Testing Workflow
 
 Here's how to test your deployed API end-to-end:
 
-### Step 1: Upload a test PDF to S3
+### Step 1: Set up IAM Role (one-time setup)
+
+Create an IAM role for testing:
+
+```bash
+./scripts/setup_iam_role.rb \
+  --source-bucket my-bucket \
+  --dest-bucket my-bucket
+```
+
+Note the role ARN from the output (e.g., `arn:aws:iam::123456789012:role/PdfConverterClientRole`).
+
+### Step 2: Upload a test PDF to S3
 
 ```bash
 aws s3 cp test.pdf s3://my-bucket/pdfs/test.pdf
 ```
 
-### Step 2: Generate a JWT token
+### Step 3: Generate a JWT token
 
 ```bash
 ./scripts/generate_jwt_token.rb
@@ -136,18 +166,16 @@ aws s3 cp test.pdf s3://my-bucket/pdfs/test.pdf
 
 Copy the token from the output.
 
-### Step 3: Generate pre-signed URLs
+### Step 4: Generate STS credentials
 
 ```bash
-./scripts/generate_presigned_urls.rb \
-  --bucket my-bucket \
-  --source-key pdfs/test.pdf \
-  --dest-prefix output/
+./scripts/generate_sts_credentials.rb \
+  --role-arn arn:aws:iam::123456789012:role/PdfConverterClientRole
 ```
 
-Copy the JSON payload from the output.
+Copy the JSON payload from the output and update the bucket/key values.
 
-### Step 4: Call the API
+### Step 5: Call the API
 
 Use the JWT token and JSON payload to call your deployed API:
 
@@ -156,13 +184,24 @@ curl -X POST https://your-api-id.execute-api.us-east-1.amazonaws.com/Prod/conver
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "source": "https://s3.amazonaws.com/...",
-    "destination": "https://s3.amazonaws.com/...",
+    "source": {
+      "bucket": "my-bucket",
+      "key": "pdfs/test.pdf"
+    },
+    "destination": {
+      "bucket": "my-bucket",
+      "prefix": "output/"
+    },
+    "credentials": {
+      "accessKeyId": "ASIA...",
+      "secretAccessKey": "...",
+      "sessionToken": "..."
+    },
     "unique_id": "test-123"
   }'
 ```
 
-### Step 5: Check the results
+### Step 6: Check the results
 
 ```bash
 # List converted images
@@ -190,9 +229,17 @@ Ensure the JWT secret exists in AWS Secrets Manager:
 aws secretsmanager describe-secret --secret-id pdf-converter/jwt-secret
 ```
 
+### Unable to Assume Role
+
+Ensure:
+1. The role ARN is correct
+2. Your AWS credentials have permission to assume the role
+3. The role's trust policy includes your AWS account and the correct ExternalId
+
 ### Permission Denied
 
-Your AWS user/role needs these permissions:
-- `s3:GetObject` on the source bucket
-- `s3:PutObject` on the destination bucket
-- `secretsmanager:GetSecretValue` for the JWT secret
+The temporary STS credentials need these permissions:
+- `s3:GetObject` on the source bucket/key
+- `s3:PutObject` on the destination bucket/prefix
+
+These permissions are scoped to the IAM role and configured when you run `setup_iam_role.rb`.

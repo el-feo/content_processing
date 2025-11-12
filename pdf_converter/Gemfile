@@ -4,28 +4,25 @@ source 'https://rubygems.org'
 
 ruby '~> 3.4'
 
-# Testing
-group :test do
-  gem 'aws-sdk-s3', '~> 1'
-  gem 'rspec', '~> 3.12'
-  gem 'simplecov', '~> 0.22', require: false
-  gem 'webmock', '~> 3.19'
-end
-
 # JSON handling
 gem 'json', '~> 2.9'
 
 # JWT authentication
 gem 'jwt', '~> 2.7'
 
-# AWS SDK for Secrets Manager
+# AWS SDK for S3 and Secrets Manager
+gem 'aws-sdk-s3', '~> 1'
 gem 'aws-sdk-secretsmanager', '~> 1'
 
 # PDF to image conversion
 gem 'ruby-vips', '~> 2.2'
 
-# Async processing for batch uploads
-gem 'async', '~> 2.6'
+# Testing
+group :test do
+  gem 'rspec', '~> 3.12'
+  gem 'simplecov', '~> 0.22', require: false
+  gem 'webmock', '~> 3.19'
+end
 
 group :development do
   gem 'rubocop', '~> 1.81'

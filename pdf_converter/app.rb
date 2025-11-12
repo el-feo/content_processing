@@ -3,14 +3,12 @@
 require 'json'
 require 'fileutils'
 require_relative 'app/jwt_authenticator'
-require_relative 'app/url_validator'
 require_relative 'app/pdf_downloader'
 require_relative 'app/pdf_converter'
 require_relative 'app/image_uploader'
 require_relative 'app/request_validator'
 require_relative 'app/webhook_notifier'
 require_relative 'app/response_builder'
-require_relative 'lib/url_utils'
 
 def lambda_handler(event:, context: nil)
   start_time = Time.now.to_f
@@ -40,11 +38,14 @@ end
 def process_pdf_conversion(request_body, start_time, response_builder)
   unique_id = request_body['unique_id']
   output_dir = "/tmp/#{unique_id}"
+  credentials = request_body['credentials']
 
   puts "Authentication successful for unique_id: #{unique_id}"
 
-  # Download PDF
-  download_result = PdfDownloader.new.download(request_body['source'])
+  # Download PDF from S3
+  source = request_body['source']
+  pdf_downloader = PdfDownloader.new(credentials)
+  download_result = pdf_downloader.download_from_s3(source['bucket'], source['key'])
   return handle_failure(download_result, response_builder, 'PDF download', output_dir) unless download_result[:success]
 
   pdf_content = download_result[:content]
@@ -66,11 +67,20 @@ def process_pdf_conversion(request_body, start_time, response_builder)
   page_count = images.size
   puts "PDF converted successfully: #{page_count} pages"
 
-  # Upload images
-  upload_result = ImageUploader.new.upload_images_from_files(request_body['destination'], images)
+  # Upload images to S3
+  destination = request_body['destination']
+  image_uploader = ImageUploader.new(credentials)
+  upload_result = image_uploader.upload_images_to_s3(
+    destination['bucket'],
+    destination['prefix'],
+    unique_id,
+    images
+  )
   return handle_failure(upload_result, response_builder, 'Image upload', output_dir) unless upload_result[:success]
 
-  uploaded_urls = upload_result[:uploaded_urls]
+  # Build S3 URLs for response
+  uploaded_keys = upload_result[:uploaded_keys]
+  uploaded_urls = build_s3_urls(destination['bucket'], uploaded_keys)
   puts "Images uploaded successfully: #{uploaded_urls.size} files"
 
   # Send webhook notification
@@ -84,6 +94,15 @@ def process_pdf_conversion(request_body, start_time, response_builder)
     page_count: page_count,
     metadata: conversion_result[:metadata]
   )
+end
+
+# Builds S3 URLs from bucket and keys.
+#
+# @param bucket [String] S3 bucket name
+# @param keys [Array<String>] Array of S3 object keys
+# @return [Array<String>] Array of S3 URLs
+def build_s3_urls(bucket, keys)
+  keys.map { |key| "https://#{bucket}.s3.amazonaws.com/#{key}" }
 end
 
 # Handles operation failures consistently.
