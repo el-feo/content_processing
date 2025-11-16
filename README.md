@@ -140,7 +140,7 @@ print(f"Authorization: Bearer {token}")
 
 ### Step 6: Test Your Deployment
 
-Create pre-signed S3 URLs for source (PDF) and destination (images), then call the API:
+Create pre-signed S3 URLs for source (PDF) and destination (zip file), then call the API:
 
 ```bash
 # Example using curl (replace with your actual URLs and token)
@@ -149,11 +149,13 @@ curl -X POST https://your-api-endpoint.amazonaws.com/Prod/convert \
   -H "Content-Type: application/json" \
   -d '{
     "source": "https://s3.amazonaws.com/your-bucket/input.pdf?X-Amz-...",
-    "destination": "https://s3.amazonaws.com/your-bucket/output/?X-Amz-...",
+    "destination": "https://s3.amazonaws.com/your-bucket/output.zip?X-Amz-...",
     "webhook": "https://your-webhook-endpoint.com/notify",
     "unique_id": "test-123"
   }'
 ```
+
+**Note:** The destination URL should be a pre-signed PUT URL for a `.zip` file, not a folder. The service will upload a single zip file containing all converted PNG images.
 
 For instructions on generating pre-signed S3 URLs, see the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html).
 
@@ -241,14 +243,14 @@ sam delete --stack-name content_processing  # Delete the deployed stack
 
 ### POST /convert
 
-Converts a PDF to images.
+Converts a PDF to images and delivers them as a zip file.
 
 **Request Body:**
 
 ```json
 {
   "source": "https://s3.amazonaws.com/bucket/input.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
-  "destination": "https://s3.amazonaws.com/bucket/output/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+  "destination": "https://s3.amazonaws.com/bucket/output.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
   "webhook": "https://example.com/webhook",
   "unique_id": "client-123"
 }
@@ -261,15 +263,14 @@ Converts a PDF to images.
 - **Client control**: Clients generate URLs with their own AWS credentials, maintaining data sovereignty
 - **Audit trail**: All S3 access is logged under the client's AWS account
 
+**Note on destination URL:** The destination URL should be a pre-signed PUT URL for a zip file (e.g., `output.zip`), not a folder path. The service will create a zip file containing all converted images.
+
 **Response:**
 
 ```json
 {
-  "message": "PDF conversion and upload completed",
-  "images": [
-    "https://s3.amazonaws.com/bucket/output/client-123-0.png?...",
-    "https://s3.amazonaws.com/bucket/output/client-123-1.png?..."
-  ],
+  "message": "PDF conversion and zip upload completed",
+  "images": "https://s3.amazonaws.com/bucket/output.zip",
   "unique_id": "client-123",
   "status": "completed",
   "pages_converted": 2,
@@ -281,7 +282,9 @@ Converts a PDF to images.
 }
 ```
 
-**Note:** The service processes PDFs synchronously and returns the converted images in the response. If a webhook URL is provided, a notification is also sent asynchronously (fire-and-forget) upon completion.
+**Zip File Contents:** The zip file contains PNG images named as `{unique_id}-0.png`, `{unique_id}-1.png`, etc., corresponding to each page of the PDF.
+
+**Note:** The service processes PDFs synchronously and returns the zip file URL in the response. If a webhook URL is provided, a notification is also sent asynchronously (fire-and-forget) upon completion.
 
 ## Architecture
 
@@ -311,6 +314,7 @@ The Lambda function uses these environment variables:
 - **aws-sdk-secretsmanager (~> 1)**: AWS SDK for secure key retrieval
 - **json (~> 2.9)**: JSON parsing and generation
 - **ruby-vips (~> 2.2)**: Ruby bindings for libvips image processing library
+- **rubyzip (~> 2.3)**: Zip file creation and manipulation
 - **async (~> 2.6)**: Asynchronous processing for batch uploads
 
 ### Testing

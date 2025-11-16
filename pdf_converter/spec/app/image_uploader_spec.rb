@@ -338,7 +338,8 @@ RSpec.describe ImageUploader do
   end
 
   describe '#upload_images_from_files' do
-    let(:destination_url) { 'https://s3.amazonaws.com/bucket/output/?signed=true' }
+    let(:destination_url) { 'https://s3.amazonaws.com/bucket/output.zip?signed=true' }
+    let(:unique_id) { 'test-123' }
     let(:temp_files) do
       [
         Tempfile.new(['page-1', '.png']),
@@ -353,7 +354,7 @@ RSpec.describe ImageUploader do
         file.rewind
       end
 
-      stub_request(:put, %r{https://s3.amazonaws.com/bucket/output/page-\d+.png})
+      stub_request(:put, destination_url)
         .to_return(status: 200, headers: { 'ETag' => '"test-etag"' })
     end
 
@@ -362,70 +363,43 @@ RSpec.describe ImageUploader do
     end
 
     context 'with successful upload' do
-      it 'returns success with uploaded URLs' do
-        result = uploader.upload_images_from_files(destination_url, image_paths)
+      it 'returns success with zip URL' do
+        result = uploader.upload_images_from_files(destination_url, image_paths, unique_id)
         expect(result[:success]).to be true
-        expect(result[:uploaded_urls]).to be_an(Array)
-        expect(result[:uploaded_urls].size).to eq(2)
+        expect(result[:zip_url]).to be_a(String)
       end
 
-      it 'returns ETags for uploaded images' do
-        result = uploader.upload_images_from_files(destination_url, image_paths)
-        expect(result[:etags]).to be_an(Array)
-        expect(result[:etags].size).to eq(2)
+      it 'returns ETag for uploaded zip' do
+        result = uploader.upload_images_from_files(destination_url, image_paths, unique_id)
+        expect(result[:etag]).to eq('"test-etag"')
       end
 
-      it 'strips query parameters from URLs' do
-        result = uploader.upload_images_from_files(destination_url, image_paths)
-        result[:uploaded_urls].each do |url|
-          expect(url).not_to include('signed=')
-        end
+      it 'strips query parameters from zip URL' do
+        result = uploader.upload_images_from_files(destination_url, image_paths, unique_id)
+        expect(result[:zip_url]).not_to include('signed=')
+        expect(result[:zip_url]).to include('output.zip')
       end
 
-      it 'generates sequential page names' do
-        result = uploader.upload_images_from_files(destination_url, image_paths)
-        expect(result[:uploaded_urls][0]).to include('page-1.png')
-        expect(result[:uploaded_urls][1]).to include('page-2.png')
+      it 'logs zip creation' do
+        expect { uploader.upload_images_from_files(destination_url, image_paths, unique_id) }
+          .to output(/Creating zip file with 2 images/).to_stdout
+      end
+
+      it 'logs zip upload' do
+        expect { uploader.upload_images_from_files(destination_url, image_paths, unique_id) }
+          .to output(/Zip file created/).to_stdout
       end
     end
 
-    context 'with destination URL ending in slash' do
-      let(:destination_url) { 'https://s3.amazonaws.com/bucket/output/?signed=true' }
-
-      it 'handles URL with trailing slash' do
-        result = uploader.upload_images_from_files(destination_url, image_paths)
-        expect(result[:success]).to be true
-      end
-    end
-
-    context 'with destination URL not ending in slash' do
-      let(:destination_url) { 'https://s3.amazonaws.com/bucket/output?signed=true' }
-
-      it 'adds trailing slash to path' do
-        result = uploader.upload_images_from_files(destination_url, image_paths)
-        expect(result[:success]).to be true
-        result[:uploaded_urls].each do |url|
-          expect(url).to match(%r{/output/page-\d+\.png})
-        end
-      end
-    end
-
-    context 'with some failed uploads' do
+    context 'with failed upload' do
       before do
-        stub_request(:put, %r{https://s3.amazonaws.com/bucket/output/page-1.png})
-          .to_return(status: 200, headers: { 'ETag' => '"etag-1"' })
-        stub_request(:put, %r{https://s3.amazonaws.com/bucket/output/page-2.png})
+        stub_request(:put, destination_url)
           .to_return(status: 403, body: 'Forbidden')
       end
 
-      it 'returns error with count' do
-        result = uploader.upload_images_from_files(destination_url, image_paths)
+      it 'returns error' do
+        result = uploader.upload_images_from_files(destination_url, image_paths, unique_id)
         expect(result[:success]).to be false
-        expect(result[:error]).to include('Failed to upload 1 images')
-      end
-
-      it 'includes error messages' do
-        result = uploader.upload_images_from_files(destination_url, image_paths)
         expect(result[:error]).to include('Access denied')
       end
     end
@@ -434,9 +408,9 @@ RSpec.describe ImageUploader do
       let(:invalid_paths) { ['/nonexistent/file1.png', '/nonexistent/file2.png'] }
 
       it 'returns error for missing files' do
-        result = uploader.upload_images_from_files(destination_url, invalid_paths)
+        result = uploader.upload_images_from_files(destination_url, invalid_paths, unique_id)
         expect(result[:success]).to be false
-        expect(result[:error]).to include('Upload error')
+        expect(result[:error]).to include('Zip upload error')
       end
     end
 
@@ -444,9 +418,9 @@ RSpec.describe ImageUploader do
       let(:invalid_url) { 'not a valid url' }
 
       it 'returns error for invalid destination URL' do
-        result = uploader.upload_images_from_files(invalid_url, image_paths)
+        result = uploader.upload_images_from_files(invalid_url, image_paths, unique_id)
         expect(result[:success]).to be false
-        expect(result[:error]).to include('Upload error')
+        expect(result[:error]).to match(/Zip upload error|Invalid URL format/)
       end
     end
   end
@@ -602,137 +576,6 @@ RSpec.describe ImageUploader do
       it 'does not use SSL for HTTP' do
         uploader.send(:perform_upload, http_uri, content, 'image/png')
         expect(WebMock).to have_requested(:put, 'http://localhost:4566/image.png')
-      end
-    end
-  end
-
-  describe '#parse_destination_url (private)' do
-    context 'with URL ending in slash' do
-      let(:url_with_slash) { 'https://s3.amazonaws.com/bucket/output/' }
-
-      it 'keeps trailing slash' do
-        uri = uploader.send(:parse_destination_url, url_with_slash)
-        expect(uri.path).to end_with('/')
-      end
-    end
-
-    context 'with URL not ending in slash' do
-      let(:url_without_slash) { 'https://s3.amazonaws.com/bucket/output' }
-
-      it 'adds trailing slash' do
-        uri = uploader.send(:parse_destination_url, url_without_slash)
-        expect(uri.path).to end_with('/')
-      end
-    end
-  end
-
-  describe '#prepare_images_for_upload (private)' do
-    let(:base_uri) { URI.parse('https://s3.amazonaws.com/bucket/output/') }
-    let(:temp_files) do
-      [
-        Tempfile.new(['test-1', '.png']),
-        Tempfile.new(['test-2', '.png'])
-      ]
-    end
-    let(:image_paths) { temp_files.map(&:path) }
-
-    before do
-      temp_files.each_with_index do |file, index|
-        file.write("content-#{index + 1}")
-        file.rewind
-      end
-    end
-
-    after do
-      temp_files.each(&:close!)
-    end
-
-    it 'returns arrays of URLs and contents' do
-      urls, contents = uploader.send(:prepare_images_for_upload, image_paths, base_uri)
-      expect(urls).to be_an(Array)
-      expect(contents).to be_an(Array)
-      expect(urls.size).to eq(2)
-      expect(contents.size).to eq(2)
-    end
-
-    it 'generates sequential page names' do
-      urls, _contents = uploader.send(:prepare_images_for_upload, image_paths, base_uri)
-      expect(urls[0]).to include('page-1.png')
-      expect(urls[1]).to include('page-2.png')
-    end
-
-    it 'reads file contents' do
-      _urls, contents = uploader.send(:prepare_images_for_upload, image_paths, base_uri)
-      expect(contents[0]).to eq('content-1')
-      expect(contents[1]).to eq('content-2')
-    end
-  end
-
-  describe '#process_upload_results (private)' do
-    let(:image_urls) { ['https://s3.amazonaws.com/bucket/page-1.png?signed=true', 'https://s3.amazonaws.com/bucket/page-2.png?signed=true'] }
-
-    context 'with all successful uploads' do
-      let(:upload_results) do
-        [
-          { success: true, etag: '"etag-1"', index: 0 },
-          { success: true, etag: '"etag-2"', index: 1 }
-        ]
-      end
-
-      it 'returns success result' do
-        result = uploader.send(:process_upload_results, upload_results, image_urls)
-        expect(result[:success]).to be true
-      end
-
-      it 'returns uploaded URLs without query params' do
-        result = uploader.send(:process_upload_results, upload_results, image_urls)
-        result[:uploaded_urls].each do |url|
-          expect(url).not_to include('signed=')
-        end
-      end
-
-      it 'returns all ETags' do
-        result = uploader.send(:process_upload_results, upload_results, image_urls)
-        expect(result[:etags]).to eq(['"etag-1"', '"etag-2"'])
-      end
-    end
-
-    context 'with some failed uploads' do
-      let(:upload_results) do
-        [
-          { success: true, etag: '"etag-1"', index: 0 },
-          { success: false, error: 'Access denied - URL may be expired or invalid', index: 1 }
-        ]
-      end
-
-      it 'returns failure result' do
-        result = uploader.send(:process_upload_results, upload_results, image_urls)
-        expect(result[:success]).to be false
-      end
-
-      it 'includes error count' do
-        result = uploader.send(:process_upload_results, upload_results, image_urls)
-        expect(result[:error]).to include('Failed to upload 1 images')
-      end
-
-      it 'includes error messages' do
-        result = uploader.send(:process_upload_results, upload_results, image_urls)
-        expect(result[:error]).to include('Access denied')
-      end
-    end
-
-    context 'with multiple duplicate errors' do
-      let(:upload_results) do
-        [
-          { success: false, error: 'HTTP 403: Forbidden', index: 0 },
-          { success: false, error: 'HTTP 403: Forbidden', index: 1 }
-        ]
-      end
-
-      it 'deduplicates error messages' do
-        result = uploader.send(:process_upload_results, upload_results, image_urls)
-        # Should only include the error message once
-        expect(result[:error].scan('HTTP 403').count).to eq(1)
       end
     end
   end

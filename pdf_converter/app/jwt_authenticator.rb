@@ -40,8 +40,9 @@ class JwtAuthenticator
       log_debug('Authentication successful')
       { authenticated: true, payload: validation_result[:payload] }
     else
-      log_error("Authentication failed: #{validation_result[:error]}")
-      { authenticated: false, error: validation_result[:error] }
+      error_message = validation_result[:error]
+      log_error("Authentication failed: #{error_message}")
+      { authenticated: false, error: error_message }
     end
   end
 
@@ -110,11 +111,12 @@ class JwtAuthenticator
   def build_client_config
     config = { region: ENV['AWS_REGION'] || 'us-east-1' }
 
-    return config unless ENV['AWS_ENDPOINT_URL']
+    endpoint_url = ENV['AWS_ENDPOINT_URL']
+    return config unless endpoint_url
 
     # Configure for LocalStack testing environment
     config.merge(
-      endpoint: ENV['AWS_ENDPOINT_URL'],
+      endpoint: endpoint_url,
       access_key_id: ENV['AWS_ACCESS_KEY_ID'] || 'test',
       secret_access_key: ENV['AWS_SECRET_ACCESS_KEY'] || 'test',
       ssl_verify_peer: false

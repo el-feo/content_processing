@@ -165,7 +165,7 @@ RSpec.describe ResponseBuilder do
     let(:params) do
       {
         unique_id: 'test-123',
-        uploaded_urls: ['https://s3.amazonaws.com/bucket/page-1.png'],
+        zip_url: 'https://s3.amazonaws.com/bucket/output.zip',
         page_count: 1,
         metadata: { dpi: 300, compression: 6 }
       }
@@ -182,7 +182,7 @@ RSpec.describe ResponseBuilder do
 
     it 'includes success message in body' do
       body = JSON.parse(response[:body])
-      expect(body['message']).to eq('PDF conversion and upload completed')
+      expect(body['message']).to eq('PDF conversion and zip upload completed')
     end
 
     it 'includes unique_id in body' do
@@ -195,9 +195,9 @@ RSpec.describe ResponseBuilder do
       expect(body['status']).to eq('completed')
     end
 
-    it 'includes images array in body' do
+    it 'includes zip URL in body' do
       body = JSON.parse(response[:body])
-      expect(body['images']).to eq(['https://s3.amazonaws.com/bucket/page-1.png'])
+      expect(body['images']).to eq('https://s3.amazonaws.com/bucket/output.zip')
     end
 
     it 'includes page count in body' do
@@ -214,23 +214,19 @@ RSpec.describe ResponseBuilder do
       expect { JSON.parse(response[:body]) }.not_to raise_error
     end
 
-    context 'with multiple images' do
+    context 'with multiple pages' do
       let(:params) do
         {
           unique_id: 'multi-page-456',
-          uploaded_urls: [
-            'https://s3.amazonaws.com/bucket/page-1.png',
-            'https://s3.amazonaws.com/bucket/page-2.png',
-            'https://s3.amazonaws.com/bucket/page-3.png'
-          ],
+          zip_url: 'https://s3.amazonaws.com/bucket/output.zip',
           page_count: 3,
           metadata: { dpi: 150, compression: 9 }
         }
       end
 
-      it 'includes all uploaded URLs' do
+      it 'includes zip URL and page count' do
         body = JSON.parse(response[:body])
-        expect(body['images'].size).to eq(3)
+        expect(body['images']).to eq('https://s3.amazonaws.com/bucket/output.zip')
         expect(body['pages_converted']).to eq(3)
       end
     end
@@ -239,7 +235,7 @@ RSpec.describe ResponseBuilder do
       let(:params) do
         {
           unique_id: 'test-789',
-          uploaded_urls: ['https://s3.amazonaws.com/bucket/page-1.png'],
+          zip_url: 'https://s3.amazonaws.com/bucket/output.zip',
           page_count: 1,
           metadata: {}
         }
@@ -255,7 +251,7 @@ RSpec.describe ResponseBuilder do
       let(:params) do
         {
           unique_id: 'complex-metadata',
-          uploaded_urls: ['https://s3.amazonaws.com/bucket/page-1.png'],
+          zip_url: 'https://s3.amazonaws.com/bucket/output.zip',
           page_count: 1,
           metadata: {
             dpi: 300,
@@ -280,7 +276,7 @@ RSpec.describe ResponseBuilder do
       auth_error_resp = response_builder.authentication_error_response('Auth Error')
       success_resp = response_builder.success_response(
         unique_id: 'test',
-        uploaded_urls: [],
+        zip_url: 'https://s3.amazonaws.com/bucket/output.zip',
         page_count: 0,
         metadata: {}
       )
@@ -298,7 +294,7 @@ RSpec.describe ResponseBuilder do
       auth_error_resp = response_builder.authentication_error_response('Auth Error')
       success_resp = response_builder.success_response(
         unique_id: 'test',
-        uploaded_urls: [],
+        zip_url: 'https://s3.amazonaws.com/bucket/output.zip',
         page_count: 0,
         metadata: {}
       )
