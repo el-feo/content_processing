@@ -25,10 +25,11 @@ class RequestValidator
   # @return [Hash] The parsed request body
   # @raise [JSON::ParserError] If the body is not valid JSON
   def parse_request(event)
-    if event['body'].is_a?(String)
-      JSON.parse(event['body'])
-    elsif event['body'].is_a?(Hash)
-      event['body']
+    body = event['body']
+    if body.is_a?(String)
+      JSON.parse(body)
+    elsif body.is_a?(Hash)
+      body
     else
       event
     end
@@ -78,7 +79,8 @@ class RequestValidator
     end
 
     # Validate webhook URL if provided
-    if body['webhook'] && !@url_validator.valid_url?(body['webhook'])
+    webhook_url = body['webhook']
+    if webhook_url && !@url_validator.valid_url?(webhook_url)
       return response_builder.error_response(400, 'Invalid webhook URL format')
     end
 

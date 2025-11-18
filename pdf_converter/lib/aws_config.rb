@@ -11,9 +11,10 @@ module AwsConfig
     }
 
     # Support LocalStack and custom endpoints
-    if ENV['AWS_ENDPOINT_URL']
-      puts "DEBUG: Using custom endpoint: #{ENV['AWS_ENDPOINT_URL']}"
-      config[:endpoint] = ENV['AWS_ENDPOINT_URL']
+    endpoint_url = ENV['AWS_ENDPOINT_URL']
+    if endpoint_url
+      puts "DEBUG: Using custom endpoint: #{endpoint_url}"
+      config[:endpoint] = endpoint_url
       config[:credentials] = Aws::Credentials.new('test', 'test')
       config[:force_path_style] = true # Required for LocalStack S3
     end

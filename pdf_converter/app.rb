@@ -66,21 +66,21 @@ def process_pdf_conversion(request_body, start_time, response_builder)
   page_count = images.size
   puts "PDF converted successfully: #{page_count} pages"
 
-  # Upload images
-  upload_result = ImageUploader.new.upload_images_from_files(request_body['destination'], images)
-  return handle_failure(upload_result, response_builder, 'Image upload', output_dir) unless upload_result[:success]
+  # Upload images as zip file
+  upload_result = ImageUploader.new.upload_images_from_files(request_body['destination'], images, unique_id)
+  return handle_failure(upload_result, response_builder, 'Zip upload', output_dir) unless upload_result[:success]
 
-  uploaded_urls = upload_result[:uploaded_urls]
-  puts "Images uploaded successfully: #{uploaded_urls.size} files"
+  zip_url = upload_result[:zip_url]
+  puts "Zip file uploaded successfully: #{zip_url}"
 
   # Send webhook notification
-  notify_webhook(request_body['webhook'], unique_id, uploaded_urls, page_count, start_time)
+  notify_webhook(request_body['webhook'], unique_id, zip_url, page_count, start_time)
 
   # Clean up and return success
   FileUtils.rm_rf(output_dir)
   response_builder.success_response(
     unique_id: unique_id,
-    uploaded_urls: uploaded_urls,
+    zip_url: zip_url,
     page_count: page_count,
     metadata: conversion_result[:metadata]
   )
@@ -104,23 +104,23 @@ end
 #
 # @param webhook_url [String, nil] Webhook URL
 # @param unique_id [String] Unique identifier
-# @param uploaded_urls [Array<String>] Uploaded image URLs
+# @param zip_url [String] URL of the uploaded zip file
 # @param page_count [Integer] Number of pages
 # @param start_time [Float] Processing start time
-def notify_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+def notify_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
   return unless webhook_url
 
-  send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+  send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
 end
 
 # Sends webhook notification asynchronously (non-blocking).
 #
 # @param webhook_url [String] The URL to send the notification to
 # @param unique_id [String] Unique identifier for this conversion
-# @param uploaded_urls [Array<String>] Array of uploaded image URLs
+# @param zip_url [String] URL of the uploaded zip file
 # @param page_count [Integer] Number of pages converted
 # @param start_time [Float] Start time of the conversion process
-def send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+def send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
   notifier = WebhookNotifier.new
   end_time = Time.now.to_f
   processing_time_ms = ((end_time - start_time) * 1000).to_i
@@ -129,7 +129,7 @@ def send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
     webhook_url: webhook_url,
     unique_id: unique_id,
     status: 'completed',
-    images: uploaded_urls,
+    images: zip_url,
     page_count: page_count,
     processing_time_ms: processing_time_ms
   )

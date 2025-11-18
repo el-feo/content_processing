@@ -99,14 +99,14 @@ The Lambda function is configured with:
 
 ### POST /convert
 
-Converts a PDF to images.
+Converts a PDF to images and delivers them as a zip file.
 
 **Request Body:**
 
 ```json
 {
   "source": "https://s3.amazonaws.com/bucket/input.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
-  "destination": "https://s3.amazonaws.com/bucket/output/?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+  "destination": "https://s3.amazonaws.com/bucket/output.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
   "webhook": "https://example.com/webhook",
   "unique_id": "client-123"
 }
@@ -119,15 +119,14 @@ Converts a PDF to images.
 - **Client control**: Clients generate URLs with their own AWS credentials, maintaining data sovereignty
 - **Audit trail**: All S3 access is logged under the client's AWS account
 
+**Note on destination URL:** The destination URL should be a pre-signed PUT URL for a zip file (e.g., `output.zip`), not a folder path. The service will create a zip file containing all converted images.
+
 **Response:**
 
 ```json
 {
-  "message": "PDF conversion and upload completed",
-  "images": [
-    "https://s3.amazonaws.com/bucket/output/client-123-0.png?...",
-    "https://s3.amazonaws.com/bucket/output/client-123-1.png?..."
-  ],
+  "message": "PDF conversion and zip upload completed",
+  "images": "https://s3.amazonaws.com/bucket/output.zip",
   "unique_id": "client-123",
   "status": "completed",
   "pages_converted": 2,
@@ -139,4 +138,6 @@ Converts a PDF to images.
 }
 ```
 
-**Note:** The service processes PDFs synchronously and returns the converted images in the response. If a webhook URL is provided, a notification is also sent asynchronously (fire-and-forget) upon completion.
+**Zip File Contents:** The zip file contains PNG images named as `{unique_id}-0.png`, `{unique_id}-1.png`, etc., corresponding to each page of the PDF.
+
+**Note:** The service processes PDFs synchronously and returns the zip file URL in the response. If a webhook URL is provided, a notification is also sent asynchronously (fire-and-forget) upon completion.

@@ -8,6 +8,7 @@ require 'async/barrier'
 require 'async/semaphore'
 require_relative '../lib/retry_handler'
 require_relative '../lib/url_utils'
+require_relative '../lib/zip_builder'
 
 # ImageUploader handles uploading images to S3 using pre-signed URLs
 # with proper error handling, retries, and concurrent upload support
@@ -47,10 +48,11 @@ class ImageUploader
     error_result('Invalid URL format')
   rescue StandardError => e
     # Provide better error message for 403 errors
-    if e.message.include?('403')
+    error_message = e.message
+    if error_message.include?('403')
       error_result('Access denied - URL may be expired or invalid')
     else
-      error_result("Upload failed: #{e.message}")
+      error_result("Upload failed: #{error_message}")
     end
   end
 
@@ -82,28 +84,41 @@ class ImageUploader
     end
 
     # Sort results by index to maintain order
-    results.sort_by! { |r| r[:index] }
+    results.sort_by! { |result| result[:index] }
 
-    successful = results.count { |r| r[:success] }
+    successful = results.count { |result| result[:success] }
     log_info("Batch upload completed: #{successful}/#{results.size} successful")
 
     results
   end
 
-  # Uploads image files to S3 destination using pre-signed URL
-  # @param destination_url [String] Pre-signed S3 destination URL
+  # Uploads image files to S3 destination as a zip file using pre-signed URL
+  # @param destination_url [String] Pre-signed S3 destination URL for the zip file
   # @param image_paths [Array<String>] Array of image file paths
-  # @return [Hash] Result with :success, :uploaded_urls, :etags, or :error
-  def upload_images_from_files(destination_url, image_paths)
-    base_uri = parse_destination_url(destination_url)
-    image_urls, image_contents = prepare_images_for_upload(image_paths, base_uri)
+  # @param unique_id [String] Unique identifier for naming images in the zip
+  # @return [Hash] Result with :success, :zip_url, :etag, or :error
+  def upload_images_from_files(destination_url, image_paths, unique_id)
+    log_info("Creating zip file with #{image_paths.size} images")
 
-    upload_results = upload_batch(image_urls, image_contents, 'image/png')
-    process_upload_results(upload_results, image_urls)
+    # Create zip file in memory
+    zip_content = ZipBuilder.create_from_images(image_paths, unique_id)
+
+    log_info("Zip file created, size: #{zip_content.bytesize} bytes")
+
+    # Upload zip file to S3
+    upload_result = upload(destination_url, zip_content, 'application/zip')
+
+    return { success: false, error: upload_result[:error] } unless upload_result[:success]
+
+    {
+      success: true,
+      zip_url: UrlUtils.strip_query_params([destination_url]).first,
+      etag: upload_result[:etag]
+    }
   rescue StandardError => e
     {
       success: false,
-      error: "Upload error: #{e.message}"
+      error: "Zip upload error: #{e.message}"
     }
   end
 
@@ -164,59 +179,5 @@ class ImageUploader
 
   def log_error(message)
     @logger&.error(message) || puts("ERROR: #{message}")
-  end
-
-  # Parses the destination URL and returns a base URI with proper path.
-  #
-  # @param destination_url [String] Destination URL
-  # @return [URI] Base URI with normalized path
-  def parse_destination_url(destination_url)
-    uri = URI.parse(destination_url)
-    uri_path = uri.path
-    uri.path = uri_path.end_with?('/') ? uri_path : "#{uri_path}/"
-    uri
-  end
-
-  # Prepares image URLs and contents for batch upload.
-  #
-  # @param image_paths [Array<String>] Image file paths
-  # @param base_uri [URI] Base URI for uploads
-  # @return [Array<Array>] Two arrays: URLs and contents
-  def prepare_images_for_upload(image_paths, base_uri)
-    image_urls = []
-    image_contents = []
-
-    image_paths.each_with_index do |image_path, index|
-      image_uri = base_uri.dup
-      image_uri.path = "#{base_uri.path}page-#{index + 1}.png"
-
-      image_urls << image_uri.to_s
-      image_contents << File.read(image_path, mode: 'rb')
-    end
-
-    [image_urls, image_contents]
-  end
-
-  # Processes upload results and returns success or failure hash.
-  #
-  # @param upload_results [Array<Hash>] Upload results
-  # @param image_urls [Array<String>] Image URLs
-  # @return [Hash] Result with :success, :uploaded_urls, :etags, or :error
-  def process_upload_results(upload_results, image_urls)
-    failed_uploads = upload_results.reject { |result| result[:success] }
-
-    if failed_uploads.any?
-      error_messages = failed_uploads.map { |result| result[:error] }.uniq.join(', ')
-      return {
-        success: false,
-        error: "Failed to upload #{failed_uploads.size} images: #{error_messages}"
-      }
-    end
-
-    {
-      success: true,
-      uploaded_urls: UrlUtils.strip_query_params(image_urls),
-      etags: upload_results.map { |result| result[:etag] }
-    }
   end
 end

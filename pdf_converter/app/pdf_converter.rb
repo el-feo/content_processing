@@ -33,14 +33,15 @@ class PdfConverter
     temp_pdf = create_temp_pdf(pdf_content)
 
     begin
-      page_count = get_page_count_from_file(temp_pdf.path)
+      temp_pdf_path = temp_pdf.path
+      page_count = get_page_count_from_file(temp_pdf_path)
 
       # Validate page count
       validation_error = validate_page_count(page_count)
       return validation_error if validation_error
 
       # Convert all pages to images
-      images = convert_all_pages(temp_pdf.path, page_count, output_dir, unique_id, conversion_dpi)
+      images = convert_all_pages(temp_pdf_path, page_count, output_dir, unique_id, conversion_dpi)
 
       success_result(images, page_count, conversion_dpi)
     rescue StandardError => e
@@ -92,10 +93,11 @@ class PdfConverter
     (0...page_count).each do |page_index|
       image_path = convert_page(pdf_path, page_index, output_dir, unique_id, dpi)
       images << image_path
-      log_info("Converted page #{page_index + 1}/#{page_count}")
+      page_number = page_index + 1
+      log_info("Converted page #{page_number}/#{page_count}")
 
       # Force garbage collection every 10 pages for memory management
-      GC.start if ((page_index + 1) % 10).zero?
+      GC.start if (page_number % 10).zero?
     end
 
     images
@@ -166,7 +168,7 @@ class PdfConverter
 
     output_path
   rescue StandardError => e
-    log_error("Failed to convert page #{page_index + 1}: #{e.message}")
+    log_error("Failed to convert page #{page_number}: #{e.message}")
     raise
   end
 

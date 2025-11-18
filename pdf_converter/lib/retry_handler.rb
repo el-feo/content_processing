@@ -25,6 +25,9 @@ module RetryHandler
     NoMemoryError
   ].freeze
 
+  # Custom error raised when all retry attempts have been exhausted.
+  # This error wraps the original exception and provides context about the retry failure.
+  # Typically raised after max_attempts unsuccessful retries.
   class RetryError < StandardError; end
 
   # Executes a block with retry logic

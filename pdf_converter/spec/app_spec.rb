@@ -58,7 +58,7 @@ RSpec.describe 'Lambda Handler Functions' do
       let(:upload_result) do
         {
           success: true,
-          uploaded_urls: ['https://s3.amazonaws.com/bucket/output/page-1.png']
+          zip_url: 'https://s3.amazonaws.com/bucket/output.zip'
         }
       end
       let(:success_response) do
@@ -230,10 +230,7 @@ RSpec.describe 'Lambda Handler Functions' do
       let(:upload_result) do
         {
           success: true,
-          uploaded_urls: [
-            'https://s3.amazonaws.com/bucket/output/page-1.png',
-            'https://s3.amazonaws.com/bucket/output/page-2.png'
-          ]
+          zip_url: 'https://s3.amazonaws.com/bucket/output.zip'
         }
       end
       let(:success_response) do
@@ -268,11 +265,12 @@ RSpec.describe 'Lambda Handler Functions' do
                 ))
       end
 
-      it 'uploads images to destination' do
+      it 'uploads images as zip to destination' do
         process_pdf_conversion(request_body, start_time, response_builder)
         expect(image_uploader).to have_received(:upload_images_from_files)
           .with('https://s3.amazonaws.com/bucket/output/?signed',
-                ['/tmp/test-123/page-1.png', '/tmp/test-123/page-2.png'])
+                ['/tmp/test-123/page-1.png', '/tmp/test-123/page-2.png'],
+                'test-123')
       end
 
       it 'sends webhook notification' do
@@ -390,7 +388,7 @@ RSpec.describe 'Lambda Handler Functions' do
         {
           statusCode: 422,
           headers: { 'Content-Type' => 'application/json' },
-          body: JSON.generate({ error: 'Image upload failed: S3 access denied' })
+          body: JSON.generate({ error: 'Zip upload failed: S3 access denied' })
         }
       end
 
@@ -399,7 +397,7 @@ RSpec.describe 'Lambda Handler Functions' do
         allow(pdf_converter).to receive(:convert_to_images).and_return(conversion_result)
         allow(image_uploader).to receive(:upload_images_from_files).and_return(upload_result)
         allow(response_builder).to receive(:error_response)
-          .with(422, 'Image upload failed: S3 access denied')
+          .with(422, 'Zip upload failed: S3 access denied')
           .and_return(error_response)
       end
 
@@ -422,7 +420,7 @@ RSpec.describe 'Lambda Handler Functions' do
     context 'with custom DPI from environment' do
       let(:download_result) { { success: true, content: 'pdf-binary-content' } }
       let(:conversion_result) { { success: true, images: ['/tmp/test-123/page-1.png'], metadata: {} } }
-      let(:upload_result) { { success: true, uploaded_urls: ['https://s3.amazonaws.com/bucket/output/page-1.png'] } }
+      let(:upload_result) { { success: true, zip_url: 'https://s3.amazonaws.com/bucket/output.zip' } }
 
       before do
         ENV['CONVERSION_DPI'] = '150'
@@ -447,7 +445,7 @@ RSpec.describe 'Lambda Handler Functions' do
     context 'with default DPI when environment variable not set' do
       let(:download_result) { { success: true, content: 'pdf-binary-content' } }
       let(:conversion_result) { { success: true, images: ['/tmp/test-123/page-1.png'], metadata: {} } }
-      let(:upload_result) { { success: true, uploaded_urls: ['https://s3.amazonaws.com/bucket/output/page-1.png'] } }
+      let(:upload_result) { { success: true, zip_url: 'https://s3.amazonaws.com/bucket/output.zip' } }
 
       before do
         ENV.delete('CONVERSION_DPI')
@@ -541,7 +539,7 @@ RSpec.describe 'Lambda Handler Functions' do
   describe '#notify_webhook' do
     let(:webhook_url) { 'https://example.com/webhook' }
     let(:unique_id) { 'test-123' }
-    let(:uploaded_urls) { ['https://s3.amazonaws.com/bucket/output/page-1.png'] }
+    let(:zip_url) { 'https://s3.amazonaws.com/bucket/output.zip' }
     let(:page_count) { 1 }
     let(:start_time) { Time.now.to_f - 5.5 }
 
@@ -551,24 +549,24 @@ RSpec.describe 'Lambda Handler Functions' do
 
     context 'when webhook URL is provided' do
       it 'sends webhook notification' do
-        notify_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        notify_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(webhook_notifier).to have_received(:notify)
       end
 
       it 'passes all parameters to webhook notifier' do
-        notify_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        notify_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(webhook_notifier).to have_received(:notify)
           .with(hash_including(
                   webhook_url: webhook_url,
                   unique_id: unique_id,
                   status: 'completed',
-                  images: uploaded_urls,
+                  images: zip_url,
                   page_count: page_count
                 ))
       end
 
       it 'calculates processing time in milliseconds' do
-        notify_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        notify_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(webhook_notifier).to have_received(:notify) do |args|
           processing_time = args[:processing_time_ms]
           expect(processing_time).to be_a(Integer)
@@ -581,12 +579,12 @@ RSpec.describe 'Lambda Handler Functions' do
       let(:webhook_url) { nil }
 
       it 'does not send webhook notification' do
-        notify_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        notify_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(webhook_notifier).not_to have_received(:notify)
       end
 
       it 'returns nil early' do
-        result = notify_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        result = notify_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(result).to be_nil
       end
     end
@@ -595,7 +593,7 @@ RSpec.describe 'Lambda Handler Functions' do
   describe '#send_webhook' do
     let(:webhook_url) { 'https://example.com/webhook' }
     let(:unique_id) { 'test-123' }
-    let(:uploaded_urls) { ['https://s3.amazonaws.com/bucket/output/page-1.png'] }
+    let(:zip_url) { 'https://s3.amazonaws.com/bucket/output.zip' }
     let(:page_count) { 1 }
     let(:start_time) { Time.now.to_f - 3.5 }
 
@@ -605,19 +603,19 @@ RSpec.describe 'Lambda Handler Functions' do
       end
 
       it 'sends notification with correct parameters' do
-        send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(webhook_notifier).to have_received(:notify)
           .with(hash_including(
                   webhook_url: webhook_url,
                   unique_id: unique_id,
                   status: 'completed',
-                  images: uploaded_urls,
+                  images: zip_url,
                   page_count: page_count
                 ))
       end
 
       it 'calculates processing time correctly' do
-        send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(webhook_notifier).to have_received(:notify) do |args|
           processing_time = args[:processing_time_ms]
           expect(processing_time).to be >= 3500
@@ -626,7 +624,7 @@ RSpec.describe 'Lambda Handler Functions' do
       end
 
       it 'does not return early' do
-        result = send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        result = send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(result).to be_nil
       end
     end
@@ -639,18 +637,18 @@ RSpec.describe 'Lambda Handler Functions' do
 
       it 'does not raise error' do
         expect do
-          send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+          send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         end.not_to raise_error
       end
 
       it 'logs warning message' do
         expect do
-          send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+          send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         end.to output(/WARNING: Webhook notification failed: Connection timeout/).to_stdout
       end
 
       it 'continues without failing the request' do
-        result = send_webhook(webhook_url, unique_id, uploaded_urls, page_count, start_time)
+        result = send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
         expect(result).to be_nil
       end
     end

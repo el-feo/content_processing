@@ -47,17 +47,17 @@ class ResponseBuilder
   # Builds a success response for completed PDF conversion.
   #
   # @param unique_id [String] The unique identifier for this conversion request
-  # @param uploaded_urls [Array<String>] Array of uploaded image URLs
+  # @param zip_url [String] URL of the uploaded zip file containing all converted images
   # @param page_count [Integer] Number of pages converted
   # @param metadata [Hash] Additional metadata from the conversion process
   # @return [Hash] Lambda response hash with statusCode, headers, and body
-  def success_response(unique_id:, uploaded_urls:, page_count:, metadata:)
+  def success_response(unique_id:, zip_url:, page_count:, metadata:)
     {
       statusCode: 200,
       headers: CORS_HEADERS,
       body: {
-        message: 'PDF conversion and upload completed',
-        images: uploaded_urls,
+        message: 'PDF conversion and zip upload completed',
+        images: zip_url,
         unique_id: unique_id,
         status: 'completed',
         pages_converted: page_count,

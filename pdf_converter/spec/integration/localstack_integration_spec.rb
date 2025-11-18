@@ -80,20 +80,15 @@ RSpec.describe 'LocalStack Integration' do
       dest_url = s3_presigner.presigned_url(
         :put_object,
         bucket: bucket_name,
-        key: 'output/page-1.png',
+        key: 'output/result.zip',
         expires_in: 3600
       )
-
-      # Extract base path for destination
-      URI.parse(dest_url)
-      # Reconstruct with query params from one of the presigned URLs
-      dest_base_with_params = dest_url.sub('/page-1.png', '/')
 
       # Create Lambda event
       event = {
         'body' => {
           'source' => source_url,
-          'destination' => dest_base_with_params,
+          'destination' => dest_url,
           'webhook' => 'http://localhost:3000/webhook',
           'unique_id' => 'test-localstack-123'
         }.to_json,
@@ -112,22 +107,18 @@ RSpec.describe 'LocalStack Integration' do
       expect(response[:statusCode]).to eq(200)
       body = JSON.parse(response[:body])
       expect(body['status']).to eq('completed')
-      expect(body['images']).to be_an(Array)
-      expect(body['images'].size).to be > 0
+      expect(body['images']).to be_a(String)
+      expect(body['images']).to include('output/result.zip')
       expect(body['pages_converted']).to be > 0
 
-      # Verify images were uploaded to S3
-      body['images'].each_with_index do |_image_url, index|
-        key = "output/page-#{index + 1}.png"
-
-        # Check if object exists in S3
-        begin
-          response = s3_client.head_object(bucket: bucket_name, key: key)
-          expect(response.content_type).to eq('image/png')
-          expect(response.content_length).to be > 0
-        rescue Aws::S3::Errors::NotFound
-          raise "Expected image #{key} not found in S3"
-        end
+      # Verify zip file was uploaded to S3
+      zip_key = 'output/result.zip'
+      begin
+        zip_response = s3_client.head_object(bucket: bucket_name, key: zip_key)
+        expect(zip_response.content_type).to eq('application/zip')
+        expect(zip_response.content_length).to be > 0
+      rescue Aws::S3::Errors::NotFound
+        raise "Expected zip file #{zip_key} not found in S3"
       end
     end
 
