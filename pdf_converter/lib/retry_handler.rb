@@ -44,20 +44,20 @@ module RetryHandler
     while attempt <= max_attempts
       begin
         return yield(attempt)
-      rescue *NON_RETRYABLE_EXCEPTIONS => e
+      rescue *NON_RETRYABLE_EXCEPTIONS => error
         # Don't retry non-retryable errors, fail immediately
-        raise e
-      rescue StandardError => e
-        last_error = e
+        raise error
+      rescue StandardError => error
+        last_error = error
 
         # Check if we should retry this error
-        raise e unless retryable_error?(e)
+        raise error unless retryable_error?(error)
 
         # Check if we have attempts remaining
-        raise RetryError, "#{e.message} after #{max_attempts} attempts" if attempt >= max_attempts
+        raise RetryError, "#{error.message} after #{max_attempts} attempts" if attempt >= max_attempts
 
         # Log the retry attempt
-        log_retry(logger, attempt, e.message)
+        log_retry(logger, attempt, error.message)
 
         # Wait before retrying with exponential backoff
         wait_before_retry(attempt, delay_base)

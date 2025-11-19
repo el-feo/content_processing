@@ -49,3 +49,7 @@ Lint/UnusedMethodArgument:
 # Disable FetchEnvVar for ENV variable checks in specs and app code
 Style/FetchEnvVar:
   Enabled: false
+
+# Allow "error" as exception variable name (more descriptive than "e")
+Naming/RescuedExceptionsVariableName:
+  PreferredName: error

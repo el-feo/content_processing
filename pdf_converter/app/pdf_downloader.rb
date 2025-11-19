@@ -41,8 +41,8 @@ class PdfDownloader
     }
   rescue URI::InvalidURIError
     error_result('Invalid URL format')
-  rescue StandardError => e
-    error_result("Download failed: #{e.message}")
+  rescue StandardError => error
+    error_result("Download failed: #{error.message}")
   end
 
   # Validates that the content is a valid PDF
@@ -64,8 +64,8 @@ class PdfDownloader
     RetryHandler.with_retry(logger: @logger) do
       fetch_with_redirects(uri)
     end
-  rescue RetryHandler::RetryError => e
-    raise StandardError, e.message
+  rescue RetryHandler::RetryError => error
+    raise StandardError, error.message
   end
 
   def validate_url(url)

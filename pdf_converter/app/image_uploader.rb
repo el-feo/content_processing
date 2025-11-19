@@ -42,13 +42,13 @@ class ImageUploader
       etag: etag,
       size: content.bytesize
     }
-  rescue ArgumentError => e
-    error_result(e.message)
+  rescue ArgumentError => error
+    error_result(error.message)
   rescue URI::InvalidURIError
     error_result('Invalid URL format')
-  rescue StandardError => e
+  rescue StandardError => error
     # Provide better error message for 403 errors
-    error_message = e.message
+    error_message = error.message
     if error_message.include?('403')
       error_result('Access denied - URL may be expired or invalid')
     else
@@ -62,32 +62,11 @@ class ImageUploader
   # @param content_type [String] The content type for all images
   # @return [Array<Hash>] Array of result hashes for each upload
   def upload_batch(urls, images, content_type = 'image/png')
-    raise ArgumentError, 'Number of URLs must match number of images' unless urls.size == images.size
-
+    validate_batch_inputs(urls, images)
     log_info("Starting batch upload of #{urls.size} images")
-    results = []
 
-    Async do
-      barrier = Async::Barrier.new
-      semaphore = Async::Semaphore.new(THREAD_POOL_SIZE, parent: barrier)
-
-      urls.zip(images).each_with_index do |(url, content), index|
-        semaphore.async do
-          result = upload(url, content, content_type)
-          result[:index] = index
-          results << result
-        end
-      end
-
-      # Wait for all uploads to complete
-      barrier.wait
-    end
-
-    # Sort results by index to maintain order
-    results.sort_by! { |result| result[:index] }
-
-    successful = results.count { |result| result[:success] }
-    log_info("Batch upload completed: #{successful}/#{results.size} successful")
+    results = perform_concurrent_uploads(urls, images, content_type)
+    log_batch_completion(results)
 
     results
   end
@@ -115,10 +94,10 @@ class ImageUploader
       zip_url: UrlUtils.strip_query_params([destination_url]).first,
       etag: upload_result[:etag]
     }
-  rescue StandardError => e
+  rescue StandardError => error
     {
       success: false,
-      error: "Zip upload error: #{e.message}"
+      error: "Zip upload error: #{error.message}"
     }
   end
 
@@ -127,6 +106,37 @@ class ImageUploader
   def validate_inputs(url, content)
     raise ArgumentError, 'URL cannot be nil or empty' if url.nil? || url.empty?
     raise ArgumentError, 'Content cannot be nil or empty' if content.nil? || content.empty?
+  end
+
+  def validate_batch_inputs(urls, images)
+    raise ArgumentError, 'Number of URLs must match number of images' unless urls.size == images.size
+  end
+
+  def perform_concurrent_uploads(urls, images, content_type)
+    results = []
+
+    Async do
+      barrier = Async::Barrier.new
+      semaphore = Async::Semaphore.new(THREAD_POOL_SIZE, parent: barrier)
+
+      urls.zip(images).each_with_index do |(url, content), index|
+        semaphore.async do
+          result = upload(url, content, content_type)
+          result[:index] = index
+          results << result
+        end
+      end
+
+      barrier.wait
+    end
+
+    results.sort_by! { |result| result[:index] }
+    results
+  end
+
+  def log_batch_completion(results)
+    successful = results.count { |result| result[:success] }
+    log_info("Batch upload completed: #{successful}/#{results.size} successful")
   end
 
   # Uploads content with retry logic for transient failures
@@ -138,8 +148,8 @@ class ImageUploader
     RetryHandler.with_retry(logger: @logger) do
       perform_upload(uri, content, content_type)
     end
-  rescue RetryHandler::RetryError => e
-    raise StandardError, e.message
+  rescue RetryHandler::RetryError => error
+    raise StandardError, error.message
   end
 
   def perform_upload(uri, content, content_type)

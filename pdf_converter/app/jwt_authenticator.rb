@@ -76,8 +76,8 @@ class JwtAuthenticator
       { valid: false, error: 'Invalid signature' }
     rescue JWT::DecodeError
       { valid: false, error: 'Malformed token' }
-    rescue StandardError => e
-      { valid: false, error: "Token validation error: #{e.message}" }
+    rescue StandardError => error
+      { valid: false, error: "Token validation error: #{error.message}" }
     end
   end
 
@@ -100,10 +100,10 @@ class JwtAuthenticator
     log_debug('Successfully retrieved JWT secret from Secrets Manager')
   rescue Aws::SecretsManager::Errors::ResourceNotFoundException
     handle_secret_error("Secret '#{@secret_name}' not found")
-  rescue Aws::SecretsManager::Errors::ServiceError => e
-    handle_secret_error("AWS service error - #{e.message}")
-  rescue StandardError => e
-    handle_secret_error(e.message)
+  rescue Aws::SecretsManager::Errors::ServiceError => error
+    handle_secret_error("AWS service error - #{error.message}")
+  rescue StandardError => error
+    handle_secret_error(error.message)
   end
 
   # Builds the AWS Secrets Manager client configuration

@@ -1,0 +1,262 @@
+name: RubyCritic Code Quality
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'pdf_converter/**/*.rb'
+      - 'pdf_converter/Gemfile'
+      - 'pdf_converter/Gemfile.lock'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  rubycritic:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: pdf_converter
+
+    steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for accurate comparison
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.4'
+        bundler-cache: true
+        working-directory: pdf_converter
+
+    - name: Run RubyCritic on PR branch
+      run: |
+        echo "=== Running RubyCritic ==="
+
+        # Run RubyCritic in CI mode to compare against base branch
+        set +e  # Don't exit on error, but capture it
+        bundle exec rubycritic \
+          --mode-ci \
+          --branch origin/${{ github.base_ref }} \
+          --format json \
+          --format console \
+          --no-browser \
+          app/ lib/
+
+        RC_EXIT_CODE=$?
+        echo "RubyCritic exit code: $RC_EXIT_CODE"
+        set -e
+
+        echo "=== Checking for report files ==="
+        echo "Contents of tmp directory:"
+        ls -la tmp/ || echo "tmp directory does not exist"
+
+        echo "Contents of tmp/rubycritic directory:"
+        ls -la tmp/rubycritic/ || echo "tmp/rubycritic directory does not exist"
+
+        # Save the report for analysis (copy to workspace root for github-script access)
+        if [ -f tmp/rubycritic/report.json ]; then
+          echo "=== Found report.json, copying to workspace root ==="
+          cp tmp/rubycritic/report.json ../rubycritic_report.json
+          echo "Report copied successfully"
+          echo "Report score:"
+          cat tmp/rubycritic/report.json | jq '.score' || echo "Could not parse score with jq"
+        else
+          echo "WARNING: CI mode report not found. Running full analysis..."
+          echo "This might happen when CI mode has no changed files to analyze."
+
+          # Fallback: Run without CI mode to get a full report
+          bundle exec rubycritic \
+            --format json \
+            --format console \
+            --no-browser \
+            app/ lib/ || echo "RubyCritic failed"
+
+          echo "Contents of tmp/rubycritic after full run:"
+          ls -la tmp/rubycritic/ || echo "Still no tmp/rubycritic directory"
+
+          if [ -f tmp/rubycritic/report.json ]; then
+            echo "=== Found report.json after full analysis ==="
+            cp tmp/rubycritic/report.json ../rubycritic_report.json
+            echo "Report copied successfully"
+          else
+            echo "ERROR: Still no report found. Skipping quality analysis."
+            echo "Creating empty marker file to prevent errors in next step"
+            echo '{"score": 0, "analyzed_modules": [], "error": "No report generated"}' > ../rubycritic_report.json
+          fi
+        fi
+
+    - name: Analyze results and comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          // Read RubyCritic JSON report
+          let report;
+          try {
+            const reportPath = path.join(process.env.GITHUB_WORKSPACE, 'rubycritic_report.json');
+            console.log('Looking for report at:', reportPath);
+
+            if (!fs.existsSync(reportPath)) {
+              console.log('No RubyCritic report found at:', reportPath);
+              console.log('Workspace contents:', fs.readdirSync(process.env.GITHUB_WORKSPACE));
+              return;
+            }
+
+            const reportContent = fs.readFileSync(reportPath, 'utf8');
+            report = JSON.parse(reportContent);
+            console.log('Report loaded successfully. Score:', report.score);
+          } catch (error) {
+            console.error('Error reading report:', error);
+            return;
+          }
+
+          // Check for error in report
+          if (report.error) {
+            console.log('Report generation error:', report.error);
+            const errorComment = `## 🔍 RubyCritic Code Quality Report\n\n` +
+              `⚠️ **Unable to generate quality report**\n\n` +
+              `RubyCritic could not analyze the code. This might happen when:\n` +
+              `- No Ruby files were changed in this PR\n` +
+              `- RubyCritic encountered an error during analysis\n\n` +
+              `Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: errorComment
+            });
+            return;
+          }
+
+          // Extract metrics from report
+          const score = report.score || 0;
+          const analyzedFiles = report.analysed_modules || [];
+
+          // Calculate quality breakdown
+          const filesByGrade = {};
+          analyzedFiles.forEach(file => {
+            const grade = file.rating || 'N/A';
+            filesByGrade[grade] = (filesByGrade[grade] || 0) + 1;
+          });
+
+          // Find files with issues (grade C or lower)
+          const filesWithIssues = analyzedFiles
+            .filter(file => ['C', 'D', 'F'].includes(file.rating))
+            .sort((a, b) => (a.score || 0) - (b.score || 0))
+            .slice(0, 10);  // Top 10 worst files
+
+          // Build comment body
+          let commentBody = `## 🔍 RubyCritic Code Quality Report\n\n`;
+
+          // Score summary with emoji
+          let scoreEmoji = '✅';
+          let scoreStatus = 'Excellent';
+          if (score < 60) {
+            scoreEmoji = '🔴';
+            scoreStatus = 'Critical';
+          } else if (score < 70) {
+            scoreEmoji = '🟠';
+            scoreStatus = 'Poor';
+          } else if (score < 80) {
+            scoreEmoji = '🟡';
+            scoreStatus = 'Fair';
+          } else if (score < 90) {
+            scoreEmoji = '🟢';
+            scoreStatus = 'Good';
+          }
+
+          commentBody += `### Overall Score: ${scoreEmoji} **${score.toFixed(1)}/100** (${scoreStatus})\n\n`;
+
+          // Quality distribution
+          commentBody += `### Quality Distribution\n\n`;
+          commentBody += `| Grade | Files | Description |\n`;
+          commentBody += `|-------|-------|-------------|\n`;
+          commentBody += `| A | ${filesByGrade['A'] || 0} | Excellent quality |\n`;
+          commentBody += `| B | ${filesByGrade['B'] || 0} | Good quality |\n`;
+          commentBody += `| C | ${filesByGrade['C'] || 0} | Fair quality |\n`;
+          commentBody += `| D | ${filesByGrade['D'] || 0} | Poor quality |\n`;
+          commentBody += `| F | ${filesByGrade['F'] || 0} | Critical issues |\n\n`;
+
+          // Files needing attention
+          if (filesWithIssues.length > 0) {
+            commentBody += `### 📋 Files Needing Attention\n\n`;
+            commentBody += `| File | Score | Grade | Issues |\n`;
+            commentBody += `|------|-------|-------|--------|\n`;
+
+            filesWithIssues.forEach(file => {
+              const fileName = file.path.replace('pdf_converter/', '');
+              const fileScore = (file.score || 0).toFixed(1);
+              const grade = file.rating || 'N/A';
+              const smellsCount = (file.smells || []).length;
+              commentBody += `| \`${fileName}\` | ${fileScore} | ${grade} | ${smellsCount} |\n`;
+            });
+            commentBody += `\n`;
+          } else {
+            commentBody += `### ✨ Great Job!\n\nAll analyzed files have good quality ratings (B or better).\n\n`;
+          }
+
+          // Recommendations
+          commentBody += `### 💡 Recommendations\n\n`;
+          if (score >= 90) {
+            commentBody += `- ✅ Code quality is excellent! Keep up the good work.\n`;
+          } else if (score >= 80) {
+            commentBody += `- 🔹 Consider refactoring files with grade C or lower\n`;
+            commentBody += `- 🔹 Focus on reducing complexity in lower-scored files\n`;
+          } else if (score >= 70) {
+            commentBody += `- ⚠️ Several files need refactoring\n`;
+            commentBody += `- ⚠️ Review code smells and complexity issues\n`;
+            commentBody += `- ⚠️ Consider breaking down large classes/methods\n`;
+          } else {
+            commentBody += `- 🔴 Significant refactoring needed\n`;
+            commentBody += `- 🔴 Review all files with grade D or F\n`;
+            commentBody += `- 🔴 Focus on reducing complexity and code smells\n`;
+            commentBody += `- 🔴 Consider pair programming or code review sessions\n`;
+          }
+
+          commentBody += `\n---\n`;
+          commentBody += `📊 Full report available in the [RubyCritic HTML output](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existingComment = comments.find(comment =>
+            comment.user.login === 'github-actions[bot]' &&
+            comment.body.includes('RubyCritic Code Quality Report')
+          );
+
+          // Post or update comment
+          if (existingComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: commentBody
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
+          }
+
+    - name: Upload RubyCritic HTML Report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: rubycritic-report
+        path: pdf_converter/tmp/rubycritic/
+        retention-days: 30
