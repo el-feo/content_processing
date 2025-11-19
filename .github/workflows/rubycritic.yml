@@ -44,9 +44,14 @@ jobs:
           --no-browser \
           app/ lib/ || true
 
-        # Save the report for analysis
+        # Save the report for analysis (copy to workspace root for github-script access)
         if [ -f tmp/rubycritic/report.json ]; then
-          cp tmp/rubycritic/report.json /tmp/pr_report.json
+          cp tmp/rubycritic/report.json ../rubycritic_report.json
+          echo "Report copied to workspace root"
+          cat tmp/rubycritic/report.json | jq '.score' || echo "Could not parse score"
+        else
+          echo "ERROR: Report not found at tmp/rubycritic/report.json"
+          ls -la tmp/ || echo "tmp directory does not exist"
         fi
 
     - name: Analyze results and comment on PR
@@ -59,12 +64,18 @@ jobs:
           // Read RubyCritic JSON report
           let report;
           try {
-            const reportPath = '/tmp/pr_report.json';
+            const reportPath = path.join(process.env.GITHUB_WORKSPACE, 'rubycritic_report.json');
+            console.log('Looking for report at:', reportPath);
+
             if (!fs.existsSync(reportPath)) {
-              console.log('No RubyCritic report found');
+              console.log('No RubyCritic report found at:', reportPath);
+              console.log('Workspace contents:', fs.readdirSync(process.env.GITHUB_WORKSPACE));
               return;
             }
-            report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+
+            const reportContent = fs.readFileSync(reportPath, 'utf8');
+            report = JSON.parse(reportContent);
+            console.log('Report loaded successfully. Score:', report.score);
           } catch (error) {
             console.error('Error reading report:', error);
             return;
@@ -72,17 +83,17 @@ jobs:
 
           // Extract metrics from report
           const score = report.score || 0;
-          const analysedFiles = report.analysed_modules || [];
+          const analyzedFiles = report.analysed_modules || [];
 
           // Calculate quality breakdown
           const filesByGrade = {};
-          analysedFiles.forEach(file => {
+          analyzedFiles.forEach(file => {
             const grade = file.rating || 'N/A';
             filesByGrade[grade] = (filesByGrade[grade] || 0) + 1;
           });
 
           // Find files with issues (grade C or lower)
-          const filesWithIssues = analysedFiles
+          const filesWithIssues = analyzedFiles
             .filter(file => ['C', 'D', 'F'].includes(file.rating))
             .sort((a, b) => (a.score || 0) - (b.score || 0))
             .slice(0, 10);  // Top 10 worst files
