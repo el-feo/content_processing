@@ -463,14 +463,16 @@ RSpec.describe PdfConverter do
     context 'with single page' do
       it 'converts one page' do
         temp_pdf = Tempfile.new(['test', '.pdf'])
-        images = converter.send(:convert_all_pages, temp_pdf.path, 1, output_dir, unique_id, 300)
+        context = { output_dir: output_dir, unique_id: unique_id, dpi: 300 }
+        images = converter.send(:convert_all_pages, temp_pdf.path, 1, context)
         expect(images.size).to eq(1)
         temp_pdf.close!
       end
 
       it 'does not trigger garbage collection' do
         temp_pdf = Tempfile.new(['test', '.pdf'])
-        converter.send(:convert_all_pages, temp_pdf.path, 1, output_dir, unique_id, 300)
+        context = { output_dir: output_dir, unique_id: unique_id, dpi: 300 }
+        converter.send(:convert_all_pages, temp_pdf.path, 1, context)
         expect(GC).not_to have_received(:start)
         temp_pdf.close!
       end
@@ -479,7 +481,8 @@ RSpec.describe PdfConverter do
     context 'with 10 pages' do
       it 'triggers garbage collection after 10th page' do
         temp_pdf = Tempfile.new(['test', '.pdf'])
-        converter.send(:convert_all_pages, temp_pdf.path, 10, output_dir, unique_id, 300)
+        context = { output_dir: output_dir, unique_id: unique_id, dpi: 300 }
+        converter.send(:convert_all_pages, temp_pdf.path, 10, context)
         expect(GC).to have_received(:start).once
         temp_pdf.close!
       end
@@ -488,7 +491,8 @@ RSpec.describe PdfConverter do
     context 'with 25 pages' do
       it 'triggers garbage collection twice' do
         temp_pdf = Tempfile.new(['test', '.pdf'])
-        converter.send(:convert_all_pages, temp_pdf.path, 25, output_dir, unique_id, 300)
+        context = { output_dir: output_dir, unique_id: unique_id, dpi: 300 }
+        converter.send(:convert_all_pages, temp_pdf.path, 25, context)
         expect(GC).to have_received(:start).twice
         temp_pdf.close!
       end
@@ -600,24 +604,28 @@ RSpec.describe PdfConverter do
 
     context 'with successful conversion' do
       it 'returns output path' do
-        path = converter.send(:convert_page, temp_pdf.path, 0, output_dir, unique_id, 300)
+        context = { output_dir: output_dir, unique_id: unique_id, dpi: 300 }
+        path = converter.send(:convert_page, temp_pdf.path, 0, context)
         expect(path).to include(output_dir)
         expect(path).to end_with('.png')
       end
 
       it 'uses 1-indexed page numbers in filename' do
-        path = converter.send(:convert_page, temp_pdf.path, 0, output_dir, unique_id, 300)
+        context = { output_dir: output_dir, unique_id: unique_id, dpi: 300 }
+        path = converter.send(:convert_page, temp_pdf.path, 0, context)
         expect(path).to include('page_1.png')
       end
 
       it 'loads correct page from PDF' do
-        converter.send(:convert_page, temp_pdf.path, 2, output_dir, unique_id, 300)
+        context = { output_dir: output_dir, unique_id: unique_id, dpi: 300 }
+        converter.send(:convert_page, temp_pdf.path, 2, context)
         expect(Vips::Image).to have_received(:pdfload)
           .with(temp_pdf.path, page: 2, n: 1, dpi: 300)
       end
 
       it 'saves with configured compression' do
-        converter.send(:convert_page, temp_pdf.path, 0, output_dir, unique_id, 300)
+        context = { output_dir: output_dir, unique_id: unique_id, dpi: 300 }
+        converter.send(:convert_page, temp_pdf.path, 0, context)
         expect(vips_image).to have_received(:pngsave)
           .with(anything, compression: 6)
       end

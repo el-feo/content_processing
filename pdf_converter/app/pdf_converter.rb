@@ -41,11 +41,12 @@ class PdfConverter
       return validation_error if validation_error
 
       # Convert all pages to images
-      images = convert_all_pages(temp_pdf_path, page_count, output_dir, unique_id, conversion_dpi)
+      context = { output_dir: output_dir, unique_id: unique_id, dpi: conversion_dpi }
+      images = convert_all_pages(temp_pdf_path, page_count, context)
 
       success_result(images, page_count, conversion_dpi)
-    rescue StandardError => e
-      error_result("PDF conversion failed: #{e.message}")
+    rescue StandardError => error
+      error_result("PDF conversion failed: #{error.message}")
     ensure
       cleanup_temp_file(temp_pdf)
     end
@@ -62,8 +63,8 @@ class PdfConverter
     temp_pdf.close
     temp_pdf.unlink
     count
-  rescue StandardError => e
-    log_error("Failed to get page count: #{e.message}")
+  rescue StandardError => error
+    log_error("Failed to get page count: #{error.message}")
     0
   end
 
@@ -82,16 +83,14 @@ class PdfConverter
   # Converts all pages of a PDF to PNG images
   # @param pdf_path [String] Path to the temporary PDF file
   # @param page_count [Integer] Total number of pages
-  # @param output_dir [String] Directory to save images
-  # @param unique_id [String] Unique identifier for naming
-  # @param dpi [Integer] DPI for conversion
+  # @param context [Hash] Conversion context with :output_dir, :unique_id, :dpi
   # @return [Array<String>] Array of image file paths
-  def convert_all_pages(pdf_path, page_count, output_dir, unique_id, dpi)
+  def convert_all_pages(pdf_path, page_count, context)
     images = []
-    log_info("Starting conversion of #{page_count} pages at #{dpi} DPI")
+    log_info("Starting conversion of #{page_count} pages at #{context[:dpi]} DPI")
 
     (0...page_count).each do |page_index|
-      image_path = convert_page(pdf_path, page_index, output_dir, unique_id, dpi)
+      image_path = convert_page(pdf_path, page_index, context)
       images << image_path
       page_number = page_index + 1
       log_info("Converted page #{page_number}/#{page_count}")
@@ -149,26 +148,26 @@ class PdfConverter
     # Each page is loaded vertically, so total height / page height = page count
     first_page = Vips::Image.pdfload(pdf_path, n: 1, dpi: 1)
     (image.height / first_page.height).to_i
-  rescue StandardError => e
-    log_error("Failed to load PDF for page count: #{e.message}")
+  rescue StandardError => error
+    log_error("Failed to load PDF for page count: #{error.message}")
     0
   end
 
-  def convert_page(pdf_path, page_index, output_dir, unique_id, dpi)
+  def convert_page(pdf_path, page_index, context)
     # Page number for filename (1-indexed)
     page_number = page_index + 1
-    output_filename = "#{unique_id}_page_#{page_number}.png"
-    output_path = File.join(output_dir, output_filename)
+    output_filename = "#{context[:unique_id]}_page_#{page_number}.png"
+    output_path = File.join(context[:output_dir], output_filename)
 
     # Load specific page from PDF
-    image = Vips::Image.pdfload(pdf_path, page: page_index, n: 1, dpi: dpi)
+    image = Vips::Image.pdfload(pdf_path, page: page_index, n: 1, dpi: context[:dpi])
 
     # Convert to PNG with compression
     image.pngsave(output_path, compression: @compression)
 
     output_path
-  rescue StandardError => e
-    log_error("Failed to convert page #{page_number}: #{e.message}")
+  rescue StandardError => error
+    log_error("Failed to convert page #{page_number}: #{error.message}")
     raise
   end
 

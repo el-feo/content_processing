@@ -44,44 +44,26 @@ def process_pdf_conversion(request_body, start_time, response_builder)
   puts "Authentication successful for unique_id: #{unique_id}"
 
   # Download PDF
-  download_result = PdfDownloader.new.download(request_body['source'])
-  return handle_failure(download_result, response_builder, 'PDF download', output_dir) unless download_result[:success]
-
-  pdf_content = download_result[:content]
-  puts "PDF downloaded successfully, size: #{pdf_content.bytesize} bytes"
+  pdf_content = download_pdf(request_body['source'], response_builder, output_dir)
+  return pdf_content if pdf_content.is_a?(Hash) && pdf_content[:statusCode]
 
   # Convert PDF to images
-  conversion_result = PdfConverter.new.convert_to_images(
-    pdf_content: pdf_content,
-    output_dir: output_dir,
-    unique_id: unique_id,
-    dpi: ENV['CONVERSION_DPI']&.to_i || 300
-  )
-  unless conversion_result[:success]
-    return handle_failure(conversion_result, response_builder, 'PDF conversion',
-                          output_dir)
-  end
-
-  images = conversion_result[:images]
-  page_count = images.size
-  puts "PDF converted successfully: #{page_count} pages"
+  conversion_result = convert_pdf_to_images(pdf_content, output_dir, unique_id, response_builder)
+  return conversion_result if conversion_result.is_a?(Hash) && conversion_result[:statusCode]
 
   # Upload images as zip file
-  upload_result = ImageUploader.new.upload_images_from_files(request_body['destination'], images, unique_id)
-  return handle_failure(upload_result, response_builder, 'Zip upload', output_dir) unless upload_result[:success]
-
-  zip_url = upload_result[:zip_url]
-  puts "Zip file uploaded successfully: #{zip_url}"
+  zip_url = upload_images_as_zip(request_body['destination'], conversion_result[:images], unique_id, response_builder, output_dir)
+  return zip_url if zip_url.is_a?(Hash) && zip_url[:statusCode]
 
   # Send webhook notification
-  notify_webhook(request_body['webhook'], unique_id, zip_url, page_count, start_time)
+  notify_webhook(request_body['webhook'], unique_id, zip_url, conversion_result[:images].size, start_time)
 
   # Clean up and return success
   FileUtils.rm_rf(output_dir)
   response_builder.success_response(
     unique_id: unique_id,
     zip_url: zip_url,
-    page_count: page_count,
+    page_count: conversion_result[:images].size,
     metadata: conversion_result[:metadata]
   )
 end
@@ -141,6 +123,58 @@ def send_webhook(webhook_url, unique_id, zip_url, page_count, start_time)
   # Don't fail the request if webhook fails, just log it
 end
 
+# Downloads PDF from source URL
+#
+# @param source_url [String] Source URL for PDF
+# @param response_builder [ResponseBuilder] Response builder instance
+# @param output_dir [String] Output directory for cleanup on failure
+# @return [String, Hash] PDF content or error response
+def download_pdf(source_url, response_builder, output_dir)
+  download_result = PdfDownloader.new.download(source_url)
+  return handle_failure(download_result, response_builder, 'PDF download', output_dir) unless download_result[:success]
+
+  pdf_content = download_result[:content]
+  puts "PDF downloaded successfully, size: #{pdf_content.bytesize} bytes"
+  pdf_content
+end
+
+# Converts PDF content to images
+#
+# @param pdf_content [String] PDF file content
+# @param output_dir [String] Output directory for images
+# @param unique_id [String] Unique identifier
+# @param response_builder [ResponseBuilder] Response builder instance
+# @return [Hash] Conversion result or error response
+def convert_pdf_to_images(pdf_content, output_dir, unique_id, response_builder)
+  conversion_result = PdfConverter.new.convert_to_images(
+    pdf_content: pdf_content,
+    output_dir: output_dir,
+    unique_id: unique_id,
+    dpi: ENV['CONVERSION_DPI']&.to_i || 300
+  )
+  return handle_failure(conversion_result, response_builder, 'PDF conversion', output_dir) unless conversion_result[:success]
+
+  puts "PDF converted successfully: #{conversion_result[:images].size} pages"
+  conversion_result
+end
+
+# Uploads converted images as a zip file
+#
+# @param destination_url [String] Destination URL for zip file
+# @param images [Array<String>] Array of image paths
+# @param unique_id [String] Unique identifier
+# @param response_builder [ResponseBuilder] Response builder instance
+# @param output_dir [String] Output directory for cleanup on failure
+# @return [String, Hash] Zip URL or error response
+def upload_images_as_zip(destination_url, images, unique_id, response_builder, output_dir)
+  upload_result = ImageUploader.new.upload_images_from_files(destination_url, images, unique_id)
+  return handle_failure(upload_result, response_builder, 'Zip upload', output_dir) unless upload_result[:success]
+
+  zip_url = upload_result[:zip_url]
+  puts "Zip file uploaded successfully: #{zip_url}"
+  zip_url
+end
+
 def authenticate_request(event)
   # Initialize authenticator (cached after first initialization in Lambda)
   @authenticator ||= JwtAuthenticator.new(ENV['JWT_SECRET_NAME'] || 'pdf-converter/jwt-secret')
@@ -150,12 +184,12 @@ def authenticate_request(event)
 
   # Authenticate the request
   @authenticator.authenticate(headers)
-rescue JwtAuthenticator::AuthenticationError => e
+rescue JwtAuthenticator::AuthenticationError => error
   # Handle secrets manager errors
-  puts "ERROR: Authentication service error: #{e.message}"
+  puts "ERROR: Authentication service error: #{error.message}"
   { authenticated: false, error: 'Authentication service unavailable' }
-rescue StandardError => e
+rescue StandardError => error
   # Handle any other unexpected errors
-  puts "ERROR: Unexpected authentication error: #{e.message}"
+  puts "ERROR: Unexpected authentication error: #{error.message}"
   { authenticated: false, error: 'Authentication service error' }
 end
