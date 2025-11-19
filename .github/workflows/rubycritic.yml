@@ -35,23 +35,59 @@ jobs:
 
     - name: Run RubyCritic on PR branch
       run: |
+        echo "=== Running RubyCritic ==="
+
         # Run RubyCritic in CI mode to compare against base branch
+        set +e  # Don't exit on error, but capture it
         bundle exec rubycritic \
           --mode-ci \
           --branch origin/${{ github.base_ref }} \
           --format json \
           --format console \
           --no-browser \
-          app/ lib/ || true
+          app/ lib/
+
+        RC_EXIT_CODE=$?
+        echo "RubyCritic exit code: $RC_EXIT_CODE"
+        set -e
+
+        echo "=== Checking for report files ==="
+        echo "Contents of tmp directory:"
+        ls -la tmp/ || echo "tmp directory does not exist"
+
+        echo "Contents of tmp/rubycritic directory:"
+        ls -la tmp/rubycritic/ || echo "tmp/rubycritic directory does not exist"
 
         # Save the report for analysis (copy to workspace root for github-script access)
         if [ -f tmp/rubycritic/report.json ]; then
+          echo "=== Found report.json, copying to workspace root ==="
           cp tmp/rubycritic/report.json ../rubycritic_report.json
-          echo "Report copied to workspace root"
-          cat tmp/rubycritic/report.json | jq '.score' || echo "Could not parse score"
+          echo "Report copied successfully"
+          echo "Report score:"
+          cat tmp/rubycritic/report.json | jq '.score' || echo "Could not parse score with jq"
         else
-          echo "ERROR: Report not found at tmp/rubycritic/report.json"
-          ls -la tmp/ || echo "tmp directory does not exist"
+          echo "WARNING: CI mode report not found. Running full analysis..."
+          echo "This might happen when CI mode has no changed files to analyze."
+
+          # Fallback: Run without CI mode to get a full report
+          bundle exec rubycritic \
+            --format json \
+            --format console \
+            --no-browser \
+            app/ lib/ || echo "RubyCritic failed"
+
+          echo "Contents of tmp/rubycritic after full run:"
+          ls -la tmp/rubycritic/ || echo "Still no tmp/rubycritic directory"
+
+          if [ -f tmp/rubycritic/report.json ]; then
+            echo "=== Found report.json after full analysis ==="
+            cp tmp/rubycritic/report.json ../rubycritic_report.json
+            echo "Report copied successfully"
+          else
+            echo "ERROR: Still no report found. Skipping quality analysis."
+            echo "Creating empty marker file to prevent errors in next step"
+            echo '{"score": 0, "analyzed_modules": [], "error": "No report generated"}' > ../rubycritic_report.json
+          fi
         fi
 
     - name: Analyze results and comment on PR
@@ -78,6 +114,25 @@ jobs:
             console.log('Report loaded successfully. Score:', report.score);
           } catch (error) {
             console.error('Error reading report:', error);
+            return;
+          }
+
+          // Check for error in report
+          if (report.error) {
+            console.log('Report generation error:', report.error);
+            const errorComment = `## 🔍 RubyCritic Code Quality Report\n\n` +
+              `⚠️ **Unable to generate quality report**\n\n` +
+              `RubyCritic could not analyze the code. This might happen when:\n` +
+              `- No Ruby files were changed in this PR\n` +
+              `- RubyCritic encountered an error during analysis\n\n` +
+              `Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: errorComment
+            });
             return;
           }
 
