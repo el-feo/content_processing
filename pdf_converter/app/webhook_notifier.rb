@@ -39,8 +39,8 @@ class WebhookNotifier
       error_msg = "Webhook returned HTTP #{response.code}: #{response.body}"
       { error: error_msg }
     end
-  rescue StandardError => e
-    { error: "Webhook error: #{e.message}" }
+  rescue StandardError => error
+    { error: "Webhook error: #{error.message}" }
   end
 
   private

@@ -52,7 +52,8 @@ def process_pdf_conversion(request_body, start_time, response_builder)
   return conversion_result if conversion_result.is_a?(Hash) && conversion_result[:statusCode]
 
   # Upload images as zip file
-  zip_url = upload_images_as_zip(request_body['destination'], conversion_result[:images], unique_id, response_builder, output_dir)
+  zip_url = upload_images_as_zip(request_body['destination'], conversion_result[:images], unique_id, response_builder,
+                                 output_dir)
   return zip_url if zip_url.is_a?(Hash) && zip_url[:statusCode]
 
   # Send webhook notification
@@ -152,7 +153,10 @@ def convert_pdf_to_images(pdf_content, output_dir, unique_id, response_builder)
     unique_id: unique_id,
     dpi: ENV['CONVERSION_DPI']&.to_i || 300
   )
-  return handle_failure(conversion_result, response_builder, 'PDF conversion', output_dir) unless conversion_result[:success]
+  unless conversion_result[:success]
+    return handle_failure(conversion_result, response_builder, 'PDF conversion',
+                          output_dir)
+  end
 
   puts "PDF converted successfully: #{conversion_result[:images].size} pages"
   conversion_result
